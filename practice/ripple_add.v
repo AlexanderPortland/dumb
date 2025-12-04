@@ -1,27 +1,30 @@
 // adds 4 bit integers A and B, setting the carry flag and sum output.
 module four_bit_ripple_adder(input [3:0] A, input [3:0] B, output carry_out, output [3:0] sum);
-    wire [3:0] carry;
+    wire [4:0] carry;
 
     assign carry[0] = 0;
-    full_adder fa1(A[0], B[0], carry[0], carry[1], sum[0]);
-    full_adder fa2(A[1], B[1], carry[1], carry[2], sum[1]);
-    full_adder fa3(A[2], B[2], carry[2], carry[3], sum[2]);
-    full_adder fa4(A[3], B[3], carry[3], carry_out, sum[3]);
+    genvar i;
+    generate
+        for (i = 0; i < 4; i = i + 1) begin
+            full_adder fa1(A[i], B[i], carry[i], carry[i + 1], sum[i]);
+        end
+    endgenerate
+
+    assign carry_out = carry[4];
 endmodule
 
 module byte_ripple_adder(input [7:0] A, input [7:0] B, output carry_out, output [7:0] sum);
-    wire [7:0] carry;
+    wire [8:0] carry;
 
-    // TODO: there must be a better way to write this...
     assign carry[0] = 0;
-    full_adder fa1(A[0], B[0], carry[0], carry[1], sum[0]);
-    full_adder fa2(A[1], B[1], carry[1], carry[2], sum[1]);
-    full_adder fa3(A[2], B[2], carry[2], carry[3], sum[2]);
-    full_adder fa4(A[3], B[3], carry[3], carry[4], sum[3]);
-    full_adder fa5(A[4], B[4], carry[4], carry[5], sum[4]);
-    full_adder fa6(A[5], B[5], carry[5], carry[6], sum[5]);
-    full_adder fa7(A[6], B[6], carry[6], carry[7], sum[6]);
-    full_adder fa8(A[7], B[7], carry[7], carry_out, sum[7]);
+    genvar i;
+    generate
+        for (i = 0; i < 8; i = i + 1) begin
+            full_adder fa1(A[i], B[i], carry[i], carry[i + 1], sum[i]);
+        end
+    endgenerate
+
+    assign carry_out = carry[8];
 endmodule
 
 module four_bit_ripple_adder_tb;

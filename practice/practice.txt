@@ -1,2 +1,5 @@
 full_add.v
 ripple_add.v
+dALU.v
+logic.v
+mux.v
