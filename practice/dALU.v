@@ -38,7 +38,7 @@ module dALU(
             `OP_NOT: out = not_res;
             `OP_ADD: out = add_res;
             `OP_SHL: out = shl_res; // TODO: try from logic gates
-            `OP_PASS: out = A;
+            `OP_PASS: out = B;
             // default: $error("IE: unknown op code %d", op);
             default: out = 0;
         endcase

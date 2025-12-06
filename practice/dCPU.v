@@ -47,7 +47,11 @@ module dCPU(
             acc <= 0;
             addr <= 0;
         end else begin
-            if (pc_inc) pc <= pc + 1;
+            if (pc_inc) begin 
+                pc <= pc + 1;
+            end else if (pc_load) begin
+                pc <= data_bus;
+            end
 
             // fetch instruction from the data bus
             if (ir_load) begin 
@@ -56,7 +60,7 @@ module dCPU(
             end
 
             // load the ALU result
-            if (ac_load) acc <= data_bus;
+            if (ac_load) acc <= alu_out;
 
             if (ar_load) begin
                 case (addr_mux)
@@ -67,6 +71,10 @@ module dCPU(
         end
     end
 endmodule
+
+`define INSTR_LOADA 8'd1
+`define INSTR_ADD 8'd2
+`define INSTR_JMP 8'd3
 
 module control(
     input [7:0] instr,
@@ -85,23 +93,26 @@ module control(
     reg [2:0] state;
     wire clear;
 
+    // TODO: would love some way to detect and stop on an unsupported opcode.
+
+    // inc if state is 1 or 3
+    assign pc_inc = (state == 1 || (state == 3 && instr != `INSTR_JMP)) ? 1 : 0;
+    assign pc_load = (state == 3 && instr == `INSTR_JMP);
+    assign ir_load = (state == 1);
+    assign ac_load = (state == 3 && instr != `INSTR_JMP);
+    assign ar_load = (state == 0 || state == 2) ? 1 : 0;
+
+    assign alu_op = (instr == `INSTR_ADD && state == 3) ? `OP_ADD : `OP_PASS;
+    
     // remember, W/R will read WHEN LOW not when high...
     // and will allow you to read/write from mem in the current cycle
     assign R = (state == 1 || state == 3) ? 0 : 1;
     assign W = 1;
 
-    // inc if state is 1 or 3
-    assign pc_inc = (state == 1 || state == 3) ? 1 : 0;
-    assign pc_load = 0;
-    assign clear = (state == 3);
-
-    assign alu_op = `OP_PASS;
-    assign ac_load = (state == 3);
-    assign ir_load = (state == 1);
-
     assign addr_mux = `ADDR_MUX_PC;
-    assign ar_load = (state == 0 || state == 2) ? 1 : 0;
     assign data_mux = `DATA_MUX_MEM;
+
+    assign clear = (state == 3);
 
     always @(negedge clk or posedge rst) begin
         if (clear || rst) begin
@@ -126,19 +137,24 @@ module dCPU_tb;
         clk = 0;
         forever begin
             #5 clk = ~clk;
-            $display("Time=%0t clk=%b state=%d pc=%h ir=%h, ar=%h acc=%h R=%b W=%b pc_inc=%b ir_load=%b ar_load=%b ac_load=%b data_mux=%d", 
-                 $time, clk, cpu.c.state, cpu.pc, cpu.ir, addr, cpu.acc, R, W, cpu.pc_inc, cpu.ir_load, cpu.ar_load, cpu.ac_load, cpu.data_mux);
+            $display("Time=%0t clk=%b state=%d pc=%h ir=%h, ar=%h acc=%d R=%b W=%b pc_inc=%b pc_load=%b ir_load=%b ar_load=%b ac_load=%b data_mux=%d alu_op=%d", 
+                 $time, clk, cpu.c.state, cpu.pc, cpu.ir, addr, cpu.acc, R, W, cpu.pc_inc, cpu.pc_load, cpu.ir_load, cpu.ar_load, cpu.ac_load, cpu.data_mux, cpu.alu_op);
         end
     end
     
     // Simple memory model
     reg [7:0] memory [0:255];
     initial begin
-        memory[0] = 8'h12;  // Put some test instructions
-        memory[1] = 8'h34;
-        memory[2] = 8'h56;
-        memory[3] = 8'h78;
-        memory[4] = 8'h9a;
+        memory[0] = `INSTR_LOADA;  // Put some test instructions
+        memory[1] = 8'd1;
+        memory[2] = `INSTR_ADD;
+        memory[3] = 8'd200;
+        memory[4] = `INSTR_JMP;
+        memory[5] = 8'd8;
+        memory[6] = 8'd200;
+        memory[7] = 8'd7;
+        memory[8] = `INSTR_ADD;
+        memory[9] = 8'd10;
         // ... etc
     end
     
@@ -161,7 +177,7 @@ module dCPU_tb;
         #1;
         rst = 0;
         
-        #100;  // Run for a while
+        #200;  // Run for a while
         
         $display("PC = %h, IR = %h, ACC = %h", cpu.pc, cpu.ir, cpu.acc);
         $finish;
