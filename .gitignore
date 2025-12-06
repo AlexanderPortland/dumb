@@ -7,3 +7,9 @@
 
 # Unignore all dirs
 !*/
+
+**/*.cache
+viv_proj
+
+# is this right?
+**/*.vcd

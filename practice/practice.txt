@@ -3,3 +3,4 @@ ripple_add.v
 dALU.v
 logic.v
 mux.v
+dCPU.v

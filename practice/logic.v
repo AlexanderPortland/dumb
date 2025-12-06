@@ -49,7 +49,7 @@ module byte_any_bit_set(input [7:0] A, output out);
     assign out = temp[8];
 endmodule
 
-module byte_logical_left_shift(input [7:0] A, output [7:0] out);
+module byte_logical_left_shift(input [7:0] A, output carry, output [7:0] out);
     wire zero;
 
     assign out[0] = 0;
@@ -60,4 +60,7 @@ module byte_logical_left_shift(input [7:0] A, output [7:0] out);
             assign out[i] = A[i - 1];
         end
     endgenerate
+
+    // assign the last bit to carry
+    assign carry = A[7];
 endmodule
