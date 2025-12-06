@@ -7,13 +7,14 @@
 `define OP_ADD 4'd5
 `define OP_SHL 4'd6
 
+`define FLAGS_ZERO 1'd0
 
 // a stab at an 8-bit ALU
 module dALU(
     input [7:0] A, B,
     input [3:0] op,
     output reg [7:0] out,
-    output zero // TODO: why do they typically have this?
+    output [1:0] flags
     // output negative,
     // output carry // carry is when your value is correct, but too large to fit (i.e. truncation)
     // output overflow, // as i understand it, overflow is when your value is incorrect bc of overflow
@@ -47,7 +48,7 @@ module dALU(
     // check if the output is zero
     wire any_bit_set;
     byte_any_bit_set bs(out, any_bit_set);
-    not n(zero, any_bit_set);
+    not n(flags[`FLAGS_ZERO], any_bit_set);
 endmodule
 
 // TODO: ops 
@@ -59,9 +60,9 @@ module dALU_tb;
     reg [7:0] test_A, test_B;
     reg [3:0] test_op;
     wire [7:0] test_out;
-    wire test_zero;
+    wire [1:0] test_flags;
 
-    dALU alu(.A(test_A), .B(test_B), .op(test_op), .out(test_out), .zero(test_zero));
+    dALU alu(.A(test_A), .B(test_B), .op(test_op), .out(test_out), .flags(test_flags));
 
     task assert_byte_eq;
         input [7:0] given, expected;
@@ -87,47 +88,47 @@ module dALU_tb;
         assign test_op = `OP_OR;
         assign test_A = 8'b010; assign test_B = 8'b011; #10;
         assert_byte_eq(test_out, 8'b0011, "simple or"); 
-        assert_bit_eq(test_zero, 0, "or non-zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "or non-zero");
 
         assign test_op = `OP_AND;
         assign test_A = 8'b010; assign test_B = 8'b011; #10;
         assert_byte_eq(test_out, 8'b0010, "simple and"); 
-        assert_bit_eq(test_zero, 0, "and non-zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "and non-zero");
 
         assign test_op = `OP_ADD;
         assign test_A = 8'b010; assign test_B = 8'b011; #10;
         assert_byte_eq(test_out, 8'b0101, "simple add"); 
-        assert_bit_eq(test_zero, 0, "or non-zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "or non-zero");
 
         assign test_op = `OP_AND;
         assign test_A = 8'b010; assign test_B = 8'b101; #10;
         assert_byte_eq(test_out, 8'b0000, "simple and to zero"); 
-        assert_bit_eq(test_zero, 1, "and results in zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 1, "and results in zero");
 
         assign test_op = `OP_SHL;
         assign test_A = 8'b010; assign test_B = 8'b101; #10;
         assert_byte_eq(test_out, 8'b0100, "simple shl"); 
-        assert_bit_eq(test_zero, 0, "simple shl");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "simple shl");
 
         assign test_op = `OP_SHL;
         assign test_A = 8'd16; assign test_B = 8'd255; #10;
         assert_byte_eq(test_out, 8'd32, "shl to multiply by two"); 
-        assert_bit_eq(test_zero, 0, "shl to multiply by two");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "shl to multiply by two");
 
         assign test_op = `OP_OR;
         assign test_A = 8'd8; assign test_B = 8'd2; #10;
         assert_byte_eq(test_out, 8'D10, "sarah test"); 
-        assert_bit_eq(test_zero, 0, "shl non-zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "shl non-zero");
 
         assign test_op = `OP_ADD;
         assign test_A = 8'd250; assign test_B = 8'd7; #10;
         assert_byte_eq(test_out, 8'd1, "daniel test"); 
-        assert_bit_eq(test_zero, 0, "or non-zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "or non-zero");
 
         assign test_op = `OP_ADD;
         assign test_A = 8'd200; assign test_B = 8'd1; #10;
         assert_byte_eq(test_out, 8'd201, "daniel test 2"); 
-        assert_bit_eq(test_zero, 0, "or non-zero");
+        assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "or non-zero");
 
 
         $display("[dALU]\t\t\t All tests passed!!");
