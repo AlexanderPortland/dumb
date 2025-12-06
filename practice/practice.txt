@@ -1,5 +1,5 @@
 full_add.v
-ripple_add.v
+arith.v
 dALU.v
 logic.v
 mux.v

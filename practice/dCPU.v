@@ -21,7 +21,7 @@ module dCPU(
     reg [7:0] pc, ir;
     wire pc_inc, pc_load, ir_load;
 
-    reg [1:0] flags;
+    reg [3:0] flags;
     wire flags_load;
 
     // registers for operating on data
@@ -30,7 +30,7 @@ module dCPU(
 
     // wires for interfacing w/ the ALU
     wire [3:0] alu_op;
-    wire [7:0] alu_out; wire [1:0] alu_flags;
+    wire [7:0] alu_out; wire [3:0] alu_flags;
     dALU alu(acc, data_bus, alu_op, alu_out, alu_flags);
 
     wire [1:0] data_mux;
@@ -73,14 +73,18 @@ module dCPU(
     end
 endmodule
 
-`define INSTR_LOADA 8'd1
-`define INSTR_ADD   8'd2
-`define INSTR_JMP   8'd3
-`define INSTR_JMPZ  8'd4
+`define INSTR_LOADA 8'hc1
+`define INSTR_ADD   8'hc2
+`define INSTR_JMP   8'hc3
+`define INSTR_JMPZ  8'hc4
+`define INSTR_JMPC  8'hc5 // TODO: I think i messed up the order, so this is set if acc > M
+`define INSTR_SUB   8'hc6
+`define INSTR_CMP   8'hc7
+`define INSTR_JMPNC 8'hc8 // and this is acc <= M
 
 module control(
     input [7:0] instr,
-    input [1:0] flags,
+    input [3:0] flags,
     input clk,
     input rst,
     output R, W,
@@ -101,16 +105,20 @@ module control(
     wire jmp_taken;
     assign jmp_taken = (state == 3 && 
                         (instr == `INSTR_JMP || 
-                        (instr == `INSTR_JMPZ && flags[`FLAGS_ZERO])));
+                        (instr == `INSTR_JMPZ && flags[`FLAGS_ZERO])  ||
+                        (instr == `INSTR_JMPC && flags[`FLAGS_CARRY]) ||
+                        (instr == `INSTR_JMPNC && !flags[`FLAGS_CARRY])));
 
     // inc if state is 1 or 3
     assign pc_inc = (state == 1 || (state == 3 && !jmp_taken));
     assign pc_load = (state == 3 && jmp_taken);
     assign ir_load = (state == 1);
-    assign ac_load = (state == 3 && (instr == `INSTR_ADD || instr == `INSTR_LOADA));
+    assign ac_load = (state == 3 && 
+                        (instr == `INSTR_LOADA || instr == `INSTR_ADD || instr == `INSTR_SUB));
     assign ar_load = (state == 0 || state == 2);
 
-    assign alu_op = (instr == `INSTR_ADD && state == 3) ? `OP_ADD : `OP_PASS;
+    assign alu_op = (state == 3 && instr == `INSTR_ADD) ? `OP_ADD : 
+                    (state == 3 && (instr == `INSTR_SUB || instr == `INSTR_CMP)) ? `OP_SUB : `OP_PASS;
     assign flags_load = (alu_op != `OP_PASS);
     
     // remember, W/R will read WHEN LOW not when high...
@@ -155,15 +163,17 @@ module dCPU_tb;
     reg [7:0] memory [0:255];
     initial begin
         memory[0] = `INSTR_LOADA;  // Put some test instructions
-        memory[1] = 8'd0;
-        memory[2] = `INSTR_ADD;
+        memory[1] = 8'd208;
+        memory[2] = `INSTR_SUB;
         memory[3] = 8'd16;
-        memory[4] = `INSTR_JMPZ;
-        memory[5] = 8'd8;
-        memory[6] = `INSTR_JMP;
-        memory[7] = 8'd2;
-        memory[8] = `INSTR_ADD;
-        memory[9] = 8'd100;
+        memory[4] = `INSTR_CMP;
+        memory[5] = 8'd65;
+        memory[6] = `INSTR_JMPNC;
+        memory[7] = 8'd10;
+        memory[8] = `INSTR_JMP;
+        memory[9] = 8'd2;
+        memory[10] = `INSTR_ADD;
+        memory[11] = 8'd100;
         // ... etc
     end
     

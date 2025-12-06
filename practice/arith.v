@@ -13,14 +13,19 @@ module four_bit_ripple_adder(input [3:0] A, input [3:0] B, output carry_out, out
     assign carry_out = carry[4];
 endmodule
 
-module byte_ripple_adder(input [7:0] A, input [7:0] B, output carry_out, output [7:0] sum);
+module byte_ripple_add_sub(
+    input [7:0] A, input [7:0] B, input sub, 
+    output carry_out, output [7:0] sum
+);
     wire [8:0] carry;
+    wire [8:0] B_in;
 
-    assign carry[0] = 0;
+    assign carry[0] = sub;
     genvar i;
     generate
         for (i = 0; i < 8; i = i + 1) begin
-            full_adder fa1(A[i], B[i], carry[i], carry[i + 1], sum[i]);
+            xor(B_in[i], B[i], sub);
+            full_adder fa1(A[i], B_in[i], carry[i], carry[i + 1], sum[i]);
         end
     endgenerate
 
@@ -71,11 +76,6 @@ module four_bit_ripple_adder_tb;
         assign test_A = 3; assign test_B = 4; #10;
         assert_eq(test_sum, 7); assert_eq(test_carry, 0);
 
-        // print out math for debugging
-        // $display("a   is %b", test_A); $display("b   is %b", test_B); 
-        // $display("       ----");
-        // $display("out is %b (carry %b)", test_sum, test_carry);
-
         $display("[four_bit_ripple_adder]\t All tests passed!!");
     end
 endmodule
@@ -84,8 +84,9 @@ module byte_ripple_adder_tb;
     reg [7:0] test_A, test_B;
     wire [7:0] test_sum;
     wire test_carry;
+    reg test_sub;
 
-    byte_ripple_adder uut(.A(test_A), .B(test_B), .carry_out(test_carry), .sum(test_sum));
+    byte_ripple_add_sub uut(.A(test_A), .B(test_B), .sub(test_sub), .carry_out(test_carry), .sum(test_sum));
 
     task assert_eq;
         input [7:0] given, expected;
@@ -97,6 +98,7 @@ module byte_ripple_adder_tb;
     endtask
 
     initial begin
+        assign test_sub = 0;
         assign test_A = 245; assign test_B = 3; #10;
         assert_eq(test_sum, 248); assert_eq(test_carry, 0);
 
@@ -109,6 +111,6 @@ module byte_ripple_adder_tb;
         assign test_A = 15; assign test_B = 33; #10;
         assert_eq(test_sum, 48); assert_eq(test_carry, 0);
 
-        $display("[byte_ripple_adder]\t All tests passed!!");
+        $display("[byte_ripple_add_sub]\t All tests passed!!");
     end
 endmodule
