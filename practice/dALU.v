@@ -12,7 +12,7 @@
 `define FLAGS_ZERO     2'd0  // 1 if result is zero
 `define FLAGS_CARRY    2'd1  // 1 if result carried
 `define FLAGS_SIGN     2'd2  // 1 if result is positive
-`define FLAGS_OVERFLOW 2'd3  // NOT YET USED
+`define FLAGS_OVERFLOW 2'd3  // NOT YET IMPLEMENTED
 
 // a stab at an 8-bit ALU
 module dALU(
@@ -68,7 +68,7 @@ module dALU(
 endmodule
 
 // TODO: ops 
-// - [ ] shift (from gates)
+// - [ ] do shift from gates
 // - [ ] shr
 // - [ ] more tests
 
