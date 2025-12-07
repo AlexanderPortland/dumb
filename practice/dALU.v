@@ -1,5 +1,5 @@
 // OPCODES
-`define OP_PASS 4'd7
+`define OP_PASS 4'd0
 `define OP_OR   4'd1
 `define OP_AND  4'd2
 `define OP_XOR  4'd3
