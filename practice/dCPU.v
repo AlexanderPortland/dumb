@@ -100,6 +100,9 @@ module dCPU(
     end
 endmodule
 
+// dCPU instruction codes
+// full list at: https://docs.google.com/spreadsheets/d/1c0boO_7xaOKxYpqUAhQFa4LIaI-Rz7ZPAWl9ut44rdk/edit?usp=sharing
+`define INSTR_LITA 8'hc0
 `define INSTR_LOADA 8'hc1
 `define INSTR_STORA 8'hc2
 `define INSTR_ADD   8'hc3
@@ -111,6 +114,8 @@ endmodule
 `define INSTR_JMPNC 8'hc9 // and this is acc <= M
 `define INSTR_PUSH  8'hca
 `define INSTR_POP   8'hcb
+`define INSTR_NOP   8'h90
+// TODO: i want to make a linting script to check for collisions
 
 module control(
     input [7:0] instr,
@@ -141,12 +146,16 @@ module control(
                         (instr == `INSTR_JMPNC && !flags[`FLAGS_CARRY])));
 
     // register control
-    assign pc_inc = (state == 1 || (state == 3 && !jmp_taken && instr != `INSTR_PUSH));
+    assign pc_inc = (state == 1 || 
+                    (state == 3 && !jmp_taken && instr != `INSTR_PUSH && instr != `INSTR_POP));
     assign pc_load = (state == 3 && jmp_taken);
     assign ir_load = (state == 1);
     assign ac_load = (state == 3 && 
-                        (instr == `INSTR_LOADA || instr == `INSTR_ADD || instr == `INSTR_SUB || instr == `INSTR_POP));
-    assign ar_load = (state == 0 || state == 2 || (state == 3 && instr == `INSTR_STORA));
+                        (instr == `INSTR_LITA || instr == `INSTR_ADD || instr == `INSTR_SUB || instr == `INSTR_POP)) ||
+                     (state == 4 && (instr == `INSTR_LOADA));
+    assign ar_load = (state == 0 || 
+                     (state == 2 && instr != `INSTR_NOP) || 
+                     (state == 3 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)));
 
     // ALU control
     assign alu_op = (state == 3 && instr == `INSTR_ADD) ? `OP_ADD : 
@@ -159,16 +168,21 @@ module control(
     // remember, W/R will read WHEN LOW not when high...
     // and will allow you to read/write from mem in the current cycle
     assign R = (state == 1 || 
-                (state == 3 && instr != `INSTR_PUSH)) ? 0 : 1;
-    assign W = ((state == 4 && instr == `INSTR_STORA) || 
-                (state == 3 && instr == `INSTR_PUSH)) ? 0 : 1;
+               (state == 2 && instr == `INSTR_LITA) ||
+               (state == 3 && instr != `INSTR_PUSH) ||
+               (state == 4 && instr == `INSTR_LOADA)) ? 0 : 1;
+    assign W = ((state == 3 && instr == `INSTR_PUSH) || 
+                (state == 4 && instr == `INSTR_STORA)) ? 0 : 1;
 
-    assign addr_mux = (state == 3 && instr == `INSTR_STORA) ? `ADDR_MUX_BUS : 
-                      (state == 2 && (instr == `INSTR_PUSH || instr == `INSTR_POP))  ? `ADDR_MUX_SP : `ADDR_MUX_PC;
-    assign bus_mux = ((state == 4 && instr == `INSTR_STORA) ||
-                      (state == 3 && instr == `INSTR_PUSH)) ? `BUS_MUX_ACC : `BUS_MUX_MEM;
+    assign addr_mux = (state == 2 && (instr == `INSTR_PUSH || instr == `INSTR_POP)) ? `ADDR_MUX_SP : 
+                      (state == 3 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)) ? `ADDR_MUX_BUS : `ADDR_MUX_PC;
+                      
+    assign bus_mux = ((state == 3 && instr == `INSTR_PUSH) || 
+                      (state == 4 && (instr == `INSTR_STORA))) ? `BUS_MUX_ACC : `BUS_MUX_MEM;
 
-    assign clear = (state == 3 && instr != `INSTR_STORA) || (state == 4 && instr == `INSTR_STORA);
+    assign clear = (state == 2 && instr == `INSTR_NOP) || 
+                   (state == 3 && instr != `INSTR_STORA && instr != `INSTR_LOADA) || 
+                   (state == 4 && (instr == `INSTR_STORA || instr == `INSTR_LOADA));
 
     always @(negedge clk or posedge rst) begin
         if (clear || rst) begin
@@ -202,19 +216,20 @@ module dCPU_tb;
     // simple memory model
     reg [7:0] memory [0:255];
     initial begin
-        memory[0] = `INSTR_LOADA;
-        memory[1] = 8'd10;
+        memory[0] = `INSTR_LITA;
+        memory[1] = 8'd99;
         memory[2] = `INSTR_PUSH;
-        memory[4] = `INSTR_ADD;
-        memory[5] = 8'd5;
-        memory[6] = `INSTR_POP;
-        // memory[6] = `INSTR_LOADA;
-        // memory[7] = 8'd40;
+        memory[3] = `INSTR_ADD;
+        memory[4] = 8'd5;
+        memory[5] = `INSTR_LOADA;
+        memory[6] = 8'd254;
+        // memory[7] = `INSTR_ADD;
+        // memory[8] = 8'd40;
         // memory[8] 
         // memory[9] 
         // memory[10]
         // memory[11]
-        // memory[0] = `INSTR_LOADA;  // Put some test instructions
+        // memory[0] = `INSTR_LITA;  // Put some test instructions
         // memory[1] = 8'd208;
         // memory[2] = `INSTR_SUB;
         // memory[3] = 8'd16;
@@ -259,7 +274,7 @@ module dCPU_tb;
         #1;
         rst = 0;
         
-        #320;  // Run for a while
+        #300;  // Run for a while
         
         $display("PC = %h, IR = %h, ACC = %h", cpu.pc, cpu.ir, cpu.acc);
         $finish;
