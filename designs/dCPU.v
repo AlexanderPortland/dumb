@@ -21,8 +21,11 @@ module dCPU(
     input [7:0] mem_in,
     output R, W,
     output reg [7:0] addr,
-    output [7:0] data_out
+    output [7:0] data_out,
+    output reg stop
 );
+    wire set_stop;
+
     wire ar_load;
     wire [7:0] data_bus;
     assign data_out = data_bus;
@@ -49,7 +52,7 @@ module dCPU(
 
     wire [1:0] bus_mux;
     wire [1:0] addr_mux;
-    control c(ir, flags, clk, rst, R, W, pc_inc, pc_load, sp_chg, ac_load, ar_load, ir_load, alu_op, flags_load, addr_mux, bus_mux);
+    control c(ir, flags, clk, rst, R, W, pc_inc, pc_load, sp_chg, ac_load, ar_load, ir_load, alu_op, flags_load, addr_mux, bus_mux, set_stop);
 
     // assign based on control's mux output
     assign data_bus = (bus_mux == `BUS_MUX_ACC) ? acc : 
@@ -65,6 +68,7 @@ module dCPU(
             addr <= 0;
             flags <= 4'b0;
             sp <= `SP_START_ADDR;
+            stop <= 0;
         end else begin
             // increment the pc or load a new value from the data bus
             if (pc_inc) begin 
@@ -74,19 +78,19 @@ module dCPU(
             end
 
             case (sp_chg)
-                // NOTE: the inc case here is intentionally non, blocking, to ensure that
-                // it takes effect before taking its value for the addr register
+                // NOTE: the inc case here is intentionally non blocking, to ensure that
+                // it takes effect before using its value to set the addr register
                 // TODO: is this hella jank? idk if this will work in real life.
                 `SP_INC: sp = sp + 1;
                 `SP_DEC: sp <= sp - 1;
                 // don't do anything on SP_SAME
-                // default: 
             endcase
 
             // fetch instruction from the data bus
             if (ir_load) ir <= data_bus;
             if (flags_load) flags <= alu_flags;
             if (ac_load) acc <= alu_out;
+            if (set_stop) stop <= 1;
 
             if (ar_load) begin
                 case (addr_mux)
@@ -114,7 +118,9 @@ endmodule
 `define INSTR_JMPNC 8'hc9 // and this is acc <= M
 `define INSTR_PUSH  8'hca
 `define INSTR_POP   8'hcb
+`define INSTR_STOP  8'hcc
 `define INSTR_NOP   8'h90
+
 // TODO: i want to make a linting script to check for collisions
 
 module control(
@@ -132,7 +138,8 @@ module control(
     output [3:0] alu_op,
     output flags_load,
     output [1:0] addr_mux, // where to take the address output from
-    output [1:0] bus_mux   // where to take the data bus output from
+    output [1:0] bus_mux,   // where to take the data bus output from
+    output set_stop
 );
     reg [2:0] state;
     wire clear;
@@ -177,12 +184,15 @@ module control(
     assign addr_mux = (state == 2 && (instr == `INSTR_PUSH || instr == `INSTR_POP)) ? `ADDR_MUX_SP : 
                       (state == 3 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)) ? `ADDR_MUX_BUS : `ADDR_MUX_PC;
                       
-    assign bus_mux = ((state == 3 && instr == `INSTR_PUSH) || 
+    assign bus_mux = ((state == 2 && instr == `INSTR_STOP) ||
+                      (state == 3 && instr == `INSTR_PUSH) || 
                       (state == 4 && (instr == `INSTR_STORA))) ? `BUS_MUX_ACC : `BUS_MUX_MEM;
 
     assign clear = (state == 2 && instr == `INSTR_NOP) || 
                    (state == 3 && instr != `INSTR_STORA && instr != `INSTR_LOADA) || 
                    (state == 4 && (instr == `INSTR_STORA || instr == `INSTR_LOADA));
+
+    assign set_stop = (state == 2 && instr == `INSTR_STOP);
 
     always @(negedge clk or posedge rst) begin
         if (clear || rst) begin

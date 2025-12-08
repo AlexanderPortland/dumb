@@ -1,0 +1,11 @@
+`INSTR_LITA
+8'd3
+`INSTR_ADD
+8'd17
+`INSTR_ADD
+8'h0a
+`INSTR_ADD
+8'b1011
+`INSTR_STOP
+
+; Result: 8'd41

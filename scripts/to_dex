@@ -8,14 +8,30 @@ def parse_macros():
         macro_defs = dict()
         for file in cmdfile:
             with open(f'designs/{file.strip()}', 'r') as file:
+                # only take macros
                 for macro in [line.split()[1:] for line in file if '`define' in line[:7] ]:
-                    macro_defs[macro[0]] = macro[1]
+                    # only take instruction codes
+                    if macro[0][0:6] == "INSTR_" or macro[0] == "SP_START_ADDR":
+                        macro_defs[macro[0]] = macro[1]
 
         print(macro_defs)
         return macro_defs
 
-
 BASES = { "h": 16, "d": 10, "b": 2}
+def bytes_for_num(num_str):
+    [bits, rest] = num_str.split("'")
+    (base, num) = (rest[0], rest[1:])
+
+    bits = int(bits)
+    if bits % 8 != 0:
+        raise ValueError(f"trying to write {bits} bits for the value '{num_str}' is invalid, as it must be byte divisible")
+    byte_cnt = bits // 8
+
+    val = int(num, base=BASES[base])
+    print(f"({bits} bits of base {base} - {rest}: {val})")
+
+    return val.to_bytes(byte_cnt, byteorder="little", signed=False)
+
 def build_executable(rex_path, macros, out_path):
     with open(rex_path, 'r') as file:
         # remove comments
@@ -25,26 +41,18 @@ def build_executable(rex_path, macros, out_path):
         # replace macro lines w/ expanded version
         for i in range(0, len(lines)):
             if lines[i][1:] in macros and lines[i][0] == '`':
-                print(f"i {i} in macros!")
+                # print(f"i {i} in macros!")
                 lines[i] = macros[lines[i][1:]]
 
         print(lines)
 
         executable = list()
         for i in range(0, len(lines)):
-            print(f"line is {lines[i]}")
-            [bits, rest] = lines[i].split("'")
-            (base, num) = (rest[0], rest[1:])
-
-            bits = int(bits)
-            if bits % 8 != 0:
-                raise ValueError(f"trying to write {bits} bits for the value '{lines[i]}' is invalid, as it must be byte divisible")
-            byte_cnt = bits // 8
-
-            val = int(num, base=BASES[base])
-            print(f"({bits} bits of base {base} - {rest}: {val})")
-            byts = val.to_bytes(byte_cnt, byteorder="little", signed=False)
-            executable.extend(byts)
+            # print(f"line is {lines[i]}")
+            # abstract out into function that can also be used to check collisison
+            
+            
+            executable.extend(bytes_for_num(lines[i]))
 
         print(executable)
         with open(out_path, "wb") as exec_file:

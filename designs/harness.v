@@ -7,16 +7,26 @@ module harness;
     reg [7:0] mem_in;
     wire R, W;
     wire [7:0] addr, data_out;
+    wire stop;
     
-    dCPU cpu(clk, rst, mem_in, R, W, addr, data_out);
+    dCPU cpu(clk, rst, mem_in, R, W, addr, data_out, stop);
     
     // clock emulation
     initial begin
         clk = 0;
         forever begin
-            #5 clk = ~clk;
-            $display("Time=%0t-c%b state=%d pc=%h ir=%h, ar=%h acc=%d R=%b W=%b pc_inc=%b pc_l=%b ir_l=%b ar_l=%b ac_l=%b addr_m=%d, bus_m=%d sp=%d", 
-                 $time, clk, cpu.c.state, cpu.pc, cpu.ir, addr, cpu.acc, R, W, cpu.pc_inc, cpu.pc_load, cpu.ir_load, cpu.ar_load, cpu.ac_load, cpu.addr_mux, cpu.bus_mux, cpu.sp);
+            #5
+            if (!stop) begin
+                // increment clock
+                clk = ~clk;
+                $display("Time=%0t-c%b state=%d pc=%h ir=%h, ar=%h acc=%d R=%b W=%b pc_inc=%b pc_l=%b ir_l=%b ar_l=%b ac_l=%b addr_m=%d, bus_m=%d sp=%d", 
+                    $time, clk, cpu.c.state, cpu.pc, cpu.ir, addr, cpu.acc, R, W, cpu.pc_inc, cpu.pc_load, cpu.ir_load, cpu.ar_load, cpu.ac_load, cpu.addr_mux, cpu.bus_mux, cpu.sp);
+            end else begin
+                // otherwise, the CPU wants to stop, so print output
+                $display("CPU wants to stop");
+                $display("8'd%d", data_out);
+                $finish();
+            end
         end
     end
     
@@ -37,6 +47,7 @@ module harness;
         memory[8] = 8'd5;
         memory[9] = `INSTR_POP;
 
+        // try to read memory from file if provided
         if ($value$plusargs("memory_from_file=%s", file_path)) begin
             file = $fopen(file_path, "rb");
             if (file) begin

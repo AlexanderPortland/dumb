@@ -1,0 +1,70 @@
+#!/usr/bin/python3
+import sys
+import os
+import subprocess
+
+if len(sys.argv) != 2:
+    print("usage: check_programs <program_dir>\n")
+    exit(1)
+
+PROGRAM_DIR = sys.argv[1]
+
+def all_rex_programs():
+    file_paths = [os.path.join(PROGRAM_DIR, file_name) for file_name in os.listdir(PROGRAM_DIR)]
+    return [rex_path for rex_path in file_paths if rex_path[-4:] == ".rex" and os.path.isfile(rex_path)]
+
+BASES = { "h": 16, "d": 10, "b": 2}
+def bytes_for_num(num_str):
+    [bits, rest] = num_str.split("'")
+    (base, num) = (rest[0], rest[1:])
+
+    bits = int(bits)
+    if bits % 8 != 0:
+        raise ValueError(f"trying to write {bits} bits for the value '{num_str}' is invalid, as it must be byte divisible")
+    byte_cnt = bits // 8
+
+    val = int(num, base=BASES[base])
+
+    return val.to_bytes(byte_cnt, byteorder="little", signed=False)
+
+RESULT_STR = "; Result: "
+def check_result(stdout, rex_path):
+    with open(rex_path, "r") as rex:
+        # take first result line
+        expected = [line.replace(RESULT_STR, "") for line in rex if RESULT_STR in line]
+        if len(expected) == 0:
+            print(f"no expected for {rex_path}")
+            return
+
+        expected = int.from_bytes(bytes_for_num(expected[0]), byteorder="little")
+        stdout_lines = [line.decode('utf-8') for line in stdout.splitlines()]
+            
+        stop_line = [x for x in range(len(stdout_lines)) if "CPU wants to stop" == stdout_lines[x]]
+        if len(stop_line) != 1:
+            print(f"execution of {rex_path} didn't finish!")
+            exit(1)
+
+        found = int.from_bytes(bytes_for_num(stdout_lines[stop_line[0] + 1]), byteorder="little")
+        if found != expected:
+            print(f"\t[X] FAILED: expected ({expected}) but got result ({found})")
+            exit(1)
+        else:
+            print(f"\t[!] PASSED: output ({found}) matched expected ({expected})!")
+
+def check_all_programs():
+    for rex_program_path in all_rex_programs():
+        dex_program_path = list(rex_program_path)
+        dex_program_path[-3] = 'd'
+        dex_program_path = "".join(dex_program_path)
+        print(f"[*] compiling {rex_program_path} -> {dex_program_path}")
+
+        rex_result = subprocess.run(["scripts/to_dex", f"{rex_program_path}", f"{dex_program_path}"], capture_output=True)
+        if rex_result.returncode != 0:
+            print(f"ERROR: {rex_program_path} could not be turned into a .dex file!\n stdout: {rex_result.stdout}, \nstderr: {rex_result.stderr}")
+            exit(1)
+        
+        run_result = subprocess.run(["make", "run-cpu", f"MEM={dex_program_path}"], capture_output=True)
+        check_result(run_result.stdout, rex_program_path)
+
+# print(all_rex_programs())
+check_all_programs()
