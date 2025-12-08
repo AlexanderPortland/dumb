@@ -16,4 +16,4 @@ viv_proj
 **/*.vcd
 
 # ignore all our executable files
-**/*.dex
+# **/*.dex

@@ -20,8 +20,10 @@ module harness;
     
     // simple memory model
     reg [7:0] memory [0:255];
+
+    integer file, i, read, file_sz;
+    reg [256*8-1:0] file_path;
     initial begin
-        // LOADER: OVERWITE MEMORY HERE
         memory[0] = `INSTR_LITA;
         memory[1] = 8'd99;
         memory[2] = `INSTR_PUSH;
@@ -33,26 +35,26 @@ module harness;
         memory[8] = 8'd5;
         memory[9] = `INSTR_POP;
 
-        // LOADER: STOP
+        if ($value$plusargs("memory_from_file=%s", file_path)) begin
+            // $display("Value of file memory: %s", file_path);
+            file = $fopen(file_path, "rb");
+            if (file) begin
+                read = $fseek(file, 0, 2); // seek to end of the file
+                file_sz = $ftell(file);
+                read = $fseek(file, 0, 0);
+                $display("file sz is %d", file_sz);
+                
+                if (file_sz > 256) begin
+                    $error("WARNING: File is %0d bytes, can only load 256 bytes", file_sz);
+                end
+                
+                read = $fread(memory, file, 0, 256);
+                $display("read %d bytes", read);
+                $fclose(file);
+            end else begin
 
-        // memory[8] = 8'd40;
-        // memory[8] 
-        // memory[9] 
-        // memory[10]
-        // memory[11]
-        // memory[0] = `INSTR_LITA;  // Put some test instructions
-        // memory[1] = 8'd208;
-        // memory[2] = `INSTR_SUB;
-        // memory[3] = 8'd16;
-        // memory[4] = `INSTR_CMP;
-        // memory[5] = 8'd65;
-        // memory[6] = `INSTR_JMPNC;
-        // memory[7] = 8'd10;
-        // memory[8] = `INSTR_JMP;
-        // memory[9] = 8'd2;
-        // memory[10] = `INSTR_ADD;
-        // memory[11] = 8'd100;
-        // ... etc
+            end
+        end
     end
     
     // Read from memory when CPU requests
