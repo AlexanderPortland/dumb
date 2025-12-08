@@ -1,7 +1,7 @@
 .PHONY: practice run-practice clean
 
 practice:
-	iverilog -o practice -c practice.txt
+	iverilog -o practice -c cmdfile.txt
 
 run-practice: practice
 	vvp practice

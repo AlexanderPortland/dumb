@@ -7,9 +7,13 @@
 
 # Unignore all dirs
 !*/
+!scripts/**
 
 **/*.cache
 viv_proj
 
 # is this right?
 **/*.vcd
+
+# ignore all our executable files
+**/*.dex

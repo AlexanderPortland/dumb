@@ -4,3 +4,4 @@ dALU.v
 logic.v
 mux.v
 dCPU.v
+harness.v

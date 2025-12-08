@@ -1,0 +1,7 @@
+designs/full_add.v
+designs/arith.v
+designs/dALU.v
+designs/logic.v
+designs/mux.v
+designs/dCPU.v
+test/temp_harness.v
