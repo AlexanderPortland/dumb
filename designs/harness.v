@@ -1,3 +1,5 @@
+`define MAX_ADDRESSIBLE_BYTE 255
+
 // a little harness that emulates RAM for testing the CPU
 // (initially vibecoded w/ claude, but now I'm expanding it to actually be useful)
 module harness;
@@ -19,7 +21,7 @@ module harness;
     end
     
     // simple memory model
-    reg [7:0] memory [0:255];
+    reg [7:0] memory [0:`MAX_ADDRESSIBLE_BYTE];
 
     integer file, i, read, file_sz;
     reg [256*8-1:0] file_path;
@@ -36,23 +38,23 @@ module harness;
         memory[9] = `INSTR_POP;
 
         if ($value$plusargs("memory_from_file=%s", file_path)) begin
-            // $display("Value of file memory: %s", file_path);
             file = $fopen(file_path, "rb");
             if (file) begin
                 read = $fseek(file, 0, 2); // seek to end of the file
-                file_sz = $ftell(file);
+                file_sz = $ftell(file);    // see how far we went
                 read = $fseek(file, 0, 0);
-                $display("file sz is %d", file_sz);
                 
-                if (file_sz > 256) begin
-                    $error("WARNING: File is %0d bytes, can only load 256 bytes", file_sz);
+                if (file_sz > `MAX_ADDRESSIBLE_BYTE + 1) begin
+                    $error("ERROR: given file is %0d bytes, can only load %d bytes", file_sz, `MAX_ADDRESSIBLE_BYTE + 1);
+                    $finish(1);
                 end
                 
-                read = $fread(memory, file, 0, 256);
-                $display("read %d bytes", read);
+                read = $fread(memory, file, 0, `MAX_ADDRESSIBLE_BYTE + 1);
+                $display("NOTE: loaded memory with %d bytes from given file", read);
                 $fclose(file);
             end else begin
-
+                $error("ERROR: could not open given file");
+                $finish(1);
             end
         end
     end
@@ -75,6 +77,8 @@ module harness;
         end
         if (!W && !R) begin
             $error("WARNING: trying to read and write from memory at the same time");
+            $error("terminating simulation early just in case, please debug me!");
+            $finish(1);
         end
     end
     
