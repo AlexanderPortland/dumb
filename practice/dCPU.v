@@ -3,8 +3,16 @@
 `define BUS_MUX_ACC 2'd2
 `define BUS_MUX_MEM 2'd3
 
-`define ADDR_MUX_PC  1'd0
-`define ADDR_MUX_BUS 1'd1
+`define ADDR_MUX_PC  2'd0
+`define ADDR_MUX_BUS 2'd1
+`define ADDR_MUX_SP  2'd2
+
+`define SP_START_ADDR 8'd254
+
+`define SP_SAME 2'd0
+`define SP_INC  2'd1
+`define SP_DEC  2'd2
+// `define SP_LOAD 2'd3
 
 // trying to make a very simple CPU
 module dCPU(
@@ -15,6 +23,7 @@ module dCPU(
     output reg [7:0] addr,
     output [7:0] data_out
 );
+    wire ar_load;
     wire [7:0] data_bus;
     assign data_out = data_bus;
 
@@ -22,12 +31,16 @@ module dCPU(
     reg [7:0] pc, ir;
     wire pc_inc, pc_load, ir_load;
 
+    // stack pointer (currently points 8b below the start of the stack for simplicity)
+    reg [7:0] sp;
+    wire [1:0] sp_chg;
+
+    // register for operating on data
+    reg [7:0] acc;
+    wire ac_load;
+
     reg [3:0] flags;
     wire flags_load;
-
-    // registers for operating on data
-    reg [7:0] acc;
-    wire ac_load, ar_load;
 
     // wires for interfacing w/ the ALU
     wire [3:0] alu_op;
@@ -35,8 +48,8 @@ module dCPU(
     dALU alu(acc, data_bus, alu_op, alu_out, alu_flags);
 
     wire [1:0] bus_mux;
-    wire addr_mux;
-    control c(ir, flags, clk, rst, R, W, pc_inc, pc_load, ac_load, ar_load, ir_load, alu_op, flags_load, addr_mux, bus_mux);
+    wire [1:0] addr_mux;
+    control c(ir, flags, clk, rst, R, W, pc_inc, pc_load, sp_chg, ac_load, ar_load, ir_load, alu_op, flags_load, addr_mux, bus_mux);
 
     // assign based on control's mux output
     assign data_bus = (bus_mux == `BUS_MUX_ACC) ? acc : 
@@ -51,6 +64,7 @@ module dCPU(
             acc <= 0;
             addr <= 0;
             flags <= 4'b0;
+            sp <= `SP_START_ADDR;
         end else begin
             // increment the pc or load a new value from the data bus
             if (pc_inc) begin 
@@ -58,6 +72,16 @@ module dCPU(
             end else if (pc_load) begin
                 pc <= data_bus;
             end
+
+            case (sp_chg)
+                // NOTE: the inc case here is intentionally non, blocking, to ensure that
+                // it takes effect before taking its value for the addr register
+                // TODO: is this hella jank? idk if this will work in real life.
+                `SP_INC: sp = sp + 1;
+                `SP_DEC: sp <= sp - 1;
+                // don't do anything on SP_SAME
+                // default: 
+            endcase
 
             // fetch instruction from the data bus
             if (ir_load) ir <= data_bus;
@@ -68,6 +92,7 @@ module dCPU(
                 case (addr_mux)
                     `ADDR_MUX_PC: addr = pc;
                     `ADDR_MUX_BUS: addr = data_bus;
+                    `ADDR_MUX_SP: addr = sp;
                     default: addr = 0;
                 endcase
             end
@@ -84,6 +109,8 @@ endmodule
 `define INSTR_SUB   8'hc7
 `define INSTR_CMP   8'hc8
 `define INSTR_JMPNC 8'hc9 // and this is acc <= M
+`define INSTR_PUSH  8'hca
+`define INSTR_POP   8'hcb
 
 module control(
     input [7:0] instr,
@@ -93,13 +120,14 @@ module control(
     output R, W,
     output pc_inc,
     output pc_load,
+    output [1:0] sp_chg,
     output ac_load,
     output ar_load,
     output ir_load,
     output [3:0] alu_op,
     output flags_load,
-    output addr_mux,      // where to take the address output from
-    output [1:0] bus_mux // where to take the data bus output from
+    output [1:0] addr_mux, // where to take the address output from
+    output [1:0] bus_mux   // where to take the data bus output from
 );
     reg [2:0] state;
     wire clear;
@@ -112,25 +140,33 @@ module control(
                         (instr == `INSTR_JMPC && flags[`FLAGS_CARRY]) ||
                         (instr == `INSTR_JMPNC && !flags[`FLAGS_CARRY])));
 
-    // inc if state is 1 or 3
-    assign pc_inc = (state == 1 || (state == 3 && !jmp_taken));
+    // register control
+    assign pc_inc = (state == 1 || (state == 3 && !jmp_taken && instr != `INSTR_PUSH));
     assign pc_load = (state == 3 && jmp_taken);
     assign ir_load = (state == 1);
     assign ac_load = (state == 3 && 
-                        (instr == `INSTR_LOADA || instr == `INSTR_ADD || instr == `INSTR_SUB));
+                        (instr == `INSTR_LOADA || instr == `INSTR_ADD || instr == `INSTR_SUB || instr == `INSTR_POP));
     assign ar_load = (state == 0 || state == 2 || (state == 3 && instr == `INSTR_STORA));
 
+    // ALU control
     assign alu_op = (state == 3 && instr == `INSTR_ADD) ? `OP_ADD : 
                     (state == 3 && (instr == `INSTR_SUB || instr == `INSTR_CMP)) ? `OP_SUB : `OP_PASS;
     assign flags_load = (alu_op != `OP_PASS);
+
+    assign sp_chg = (state == 3 && instr == `INSTR_PUSH) ? `SP_DEC : 
+                    (state == 2 && instr == `INSTR_POP)  ? `SP_INC : `SP_SAME;
     
     // remember, W/R will read WHEN LOW not when high...
     // and will allow you to read/write from mem in the current cycle
-    assign R = (state == 1 || state == 3) ? 0 : 1;
-    assign W = (state == 4 && instr == `INSTR_STORA) ? 0 : 1;
+    assign R = (state == 1 || 
+                (state == 3 && instr != `INSTR_PUSH)) ? 0 : 1;
+    assign W = ((state == 4 && instr == `INSTR_STORA) || 
+                (state == 3 && instr == `INSTR_PUSH)) ? 0 : 1;
 
-    assign addr_mux = (state == 3 && instr == `INSTR_STORA) ? `ADDR_MUX_BUS : `ADDR_MUX_PC;
-    assign bus_mux = (state == 4 && instr == `INSTR_STORA) ? `BUS_MUX_ACC : `BUS_MUX_MEM;
+    assign addr_mux = (state == 3 && instr == `INSTR_STORA) ? `ADDR_MUX_BUS : 
+                      (state == 2 && (instr == `INSTR_PUSH || instr == `INSTR_POP))  ? `ADDR_MUX_SP : `ADDR_MUX_PC;
+    assign bus_mux = ((state == 4 && instr == `INSTR_STORA) ||
+                      (state == 3 && instr == `INSTR_PUSH)) ? `BUS_MUX_ACC : `BUS_MUX_MEM;
 
     assign clear = (state == 3 && instr != `INSTR_STORA) || (state == 4 && instr == `INSTR_STORA);
 
@@ -143,36 +179,37 @@ module control(
     end
 endmodule
 
+// a little harness that emulates RAM for testing the CPU
+// (initially vibecoded w/ claude, but now I'm expanding it to actually be useful)
 module dCPU_tb;
     reg clk, rst;
     reg [7:0] mem_in;
     wire R, W;
     wire [7:0] addr, data_out;
     
-    // Instantiate your CPU
     dCPU cpu(clk, rst, mem_in, R, W, addr, data_out);
     
-    // Clock generation
+    // clock emulation
     initial begin
         clk = 0;
         forever begin
             #5 clk = ~clk;
-            $display("Time=%0t clk=%b state=%d pc=%h ir=%h, ar=%h acc=%d R=%b W=%b pc_inc=%b pc_load=%b ir_load=%b ar_load=%b ac_load=%b alu_op=%d flags=%b", 
-                 $time, clk, cpu.c.state, cpu.pc, cpu.ir, addr, cpu.acc, R, W, cpu.pc_inc, cpu.pc_load, cpu.ir_load, cpu.ar_load, cpu.ac_load, cpu.alu_op, cpu.flags);
+            $display("Time=%0t-c%b state=%d pc=%h ir=%h, ar=%h acc=%d R=%b W=%b pc_inc=%b pc_l=%b ir_l=%b ar_l=%b ac_l=%b addr_m=%d, bus_m=%d sp=%d", 
+                 $time, clk, cpu.c.state, cpu.pc, cpu.ir, addr, cpu.acc, R, W, cpu.pc_inc, cpu.pc_load, cpu.ir_load, cpu.ar_load, cpu.ac_load, cpu.addr_mux, cpu.bus_mux, cpu.sp);
         end
     end
     
-    // Simple memory model
+    // simple memory model
     reg [7:0] memory [0:255];
     initial begin
         memory[0] = `INSTR_LOADA;
         memory[1] = 8'd10;
-        memory[2] = `INSTR_STORA;
-        memory[3] = 8'd7;
-        memory[4] = `INSTR_LOADA;
-        memory[5] = 8'd30;
-        memory[6] = `INSTR_LOADA;
-        memory[7] = 8'd40;
+        memory[2] = `INSTR_PUSH;
+        memory[4] = `INSTR_ADD;
+        memory[5] = 8'd5;
+        memory[6] = `INSTR_POP;
+        // memory[6] = `INSTR_LOADA;
+        // memory[7] = 8'd40;
         // memory[8] 
         // memory[9] 
         // memory[10]
@@ -200,11 +237,9 @@ module dCPU_tb;
         end else begin
             mem_in = 8'h00;
         end
-        if (!W) begin
-            memory[addr] = data_out;
-        end
     end
 
+    // write to memory when the CPU requests
     always @(posedge clk) begin
         if (!W) begin
             memory[addr] <= data_out;
