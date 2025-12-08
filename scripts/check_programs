@@ -41,7 +41,7 @@ def check_result(stdout, rex_path):
             
         stop_line = [x for x in range(len(stdout_lines)) if "CPU wants to stop" == stdout_lines[x]]
         if len(stop_line) != 1:
-            print(f"execution of {rex_path} didn't finish!")
+            print(f"\t[X] FAILED: execution of {rex_path} didn't finish!")
             exit(1)
 
         found = int.from_bytes(bytes_for_num(stdout_lines[stop_line[0] + 1]), byteorder="little")
@@ -51,6 +51,7 @@ def check_result(stdout, rex_path):
         else:
             print(f"\t[!] PASSED: output ({found}) matched expected ({expected})!")
 
+# TODO: abstract out into run_rex script
 def check_all_programs():
     for rex_program_path in all_rex_programs():
         dex_program_path = list(rex_program_path)

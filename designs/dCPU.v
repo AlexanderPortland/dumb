@@ -81,6 +81,7 @@ module dCPU(
                 // NOTE: the inc case here is intentionally non blocking, to ensure that
                 // it takes effect before using its value to set the addr register
                 // TODO: is this hella jank? idk if this will work in real life.
+                // for now, this seems to be needed, but will fix is soon.
                 `SP_INC: sp = sp + 1;
                 `SP_DEC: sp <= sp - 1;
                 // don't do anything on SP_SAME
@@ -119,6 +120,8 @@ endmodule
 `define INSTR_PUSH  8'hca
 `define INSTR_POP   8'hcb
 `define INSTR_STOP  8'hcc
+`define INSTR_CALL  8'hcd
+`define INSTR_RET   8'hce
 `define INSTR_NOP   8'h90
 
 // TODO: i want to make a linting script to check for collisions
@@ -154,15 +157,17 @@ module control(
 
     // register control
     assign pc_inc = (state == 1 || 
-                    (state == 3 && !jmp_taken && instr != `INSTR_PUSH && instr != `INSTR_POP));
-    assign pc_load = (state == 3 && jmp_taken);
+                    (state == 3 && !jmp_taken && instr != `INSTR_PUSH && instr != `INSTR_POP && instr != `INSTR_RET));
+    assign pc_load = (state == 3 && (jmp_taken || instr == `INSTR_RET)) ||
+                     (state == 6 && instr == `INSTR_CALL);
     assign ir_load = (state == 1);
     assign ac_load = (state == 3 && 
-                        (instr == `INSTR_LITA || instr == `INSTR_ADD || instr == `INSTR_SUB || instr == `INSTR_POP)) ||
+                        (instr == `INSTR_LITA || instr == `INSTR_ADD || instr == `INSTR_SUB || instr == `INSTR_POP || instr == `INSTR_CALL)) ||
                      (state == 4 && (instr == `INSTR_LOADA));
     assign ar_load = (state == 0 || 
-                     (state == 2 && instr != `INSTR_NOP) || 
-                     (state == 3 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)));
+                     (state == 2 && instr != `INSTR_NOP && instr != `INSTR_STOP) || 
+                     (state == 3 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)) ||
+                     (state == 4 && instr == `INSTR_CALL));
 
     // ALU control
     assign alu_op = (state == 3 && instr == `INSTR_ADD) ? `OP_ADD : 
@@ -170,7 +175,8 @@ module control(
     assign flags_load = (alu_op != `OP_PASS);
 
     assign sp_chg = (state == 3 && instr == `INSTR_PUSH) ? `SP_DEC : 
-                    (state == 2 && instr == `INSTR_POP)  ? `SP_INC : `SP_SAME;
+                    (state == 5 && instr == `INSTR_CALL) ? `SP_DEC :
+                    (state == 2 && (instr == `INSTR_POP || instr == `INSTR_RET))  ? `SP_INC : `SP_SAME;
     
     // remember, W/R will read WHEN LOW not when high...
     // and will allow you to read/write from mem in the current cycle
@@ -178,19 +184,27 @@ module control(
                (state == 2 && instr == `INSTR_LITA) ||
                (state == 3 && instr != `INSTR_PUSH) ||
                (state == 4 && instr == `INSTR_LOADA)) ? 0 : 1;
-    assign W = ((state == 3 && instr == `INSTR_PUSH) || 
-                (state == 4 && instr == `INSTR_STORA)) ? 0 : 1;
+    assign W = ((state == 3 && instr == `INSTR_PUSH)  || 
+                (state == 4 && instr == `INSTR_STORA) ||
+                (state == 5 && instr == `INSTR_CALL)) ? 0 : 1;
 
-    assign addr_mux = (state == 2 && (instr == `INSTR_PUSH || instr == `INSTR_POP)) ? `ADDR_MUX_SP : 
-                      (state == 3 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)) ? `ADDR_MUX_BUS : `ADDR_MUX_PC;
+    assign addr_mux = (state == 2 && 
+                           (instr == `INSTR_PUSH || instr == `INSTR_POP || instr == `INSTR_RET)) ? `ADDR_MUX_SP : 
+                      (state == 3 && 
+                           (instr == `INSTR_STORA || instr == `INSTR_LOADA)) ? `ADDR_MUX_BUS : 
+                      (state == 4 && 
+                           (instr == `INSTR_CALL)) ? `ADDR_MUX_SP :`ADDR_MUX_PC;
                       
-    assign bus_mux = ((state == 2 && instr == `INSTR_STOP) ||
-                      (state == 3 && instr == `INSTR_PUSH) || 
-                      (state == 4 && (instr == `INSTR_STORA))) ? `BUS_MUX_ACC : `BUS_MUX_MEM;
+    assign bus_mux = ((state == 2 && instr == `INSTR_STOP)  ||
+                      (state == 3 && instr == `INSTR_PUSH)  || 
+                      (state == 4 && instr == `INSTR_STORA) ||
+                      (state == 6 && instr == `INSTR_CALL)) ? `BUS_MUX_ACC : 
+                      (state == 5 && instr == `INSTR_CALL) ? `BUS_MUX_PC : `BUS_MUX_MEM;
 
     assign clear = (state == 2 && instr == `INSTR_NOP) || 
-                   (state == 3 && instr != `INSTR_STORA && instr != `INSTR_LOADA) || 
-                   (state == 4 && (instr == `INSTR_STORA || instr == `INSTR_LOADA));
+                   (state == 3 && instr != `INSTR_STORA && instr != `INSTR_LOADA && instr != `INSTR_CALL) || 
+                   (state == 4 && (instr == `INSTR_STORA || instr == `INSTR_LOADA)) || 
+                   (state == 6 && instr == `INSTR_CALL);
 
     assign set_stop = (state == 2 && instr == `INSTR_STOP);
 
