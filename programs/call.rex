@@ -4,7 +4,7 @@
 16'd99
 `INSTR_CALL
 16'd20
-`INSTR_ADD    ; Add to `acc` to make sure we return back here
+`INSTR_ADD    ; Add to `acc` to see if we return back here
 16'd10
 `INSTR_STOP
 `INSTR_NOP
