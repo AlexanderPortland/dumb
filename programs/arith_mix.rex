@@ -1,11 +1,11 @@
 `INSTR_LITA
-8'd3
+16'd3
 `INSTR_ADD
-8'd17
+16'd17
 `INSTR_SUB
-8'h0a
+16'h0a
 `INSTR_ADD
-8'b1011
+16'b1011
 `INSTR_STOP
 
-; Result: 8'd21
+; Result: 16'd21

@@ -143,7 +143,7 @@ module dALU_tb;
 
         assign test_op = `OP_ADD;
         assign test_A = 16'd250; assign test_B = 16'd7; #10;
-        assert_byte_eq(test_out, 16'd1, "daniel test"); 
+        assert_byte_eq(test_out, 16'd257, "daniel test"); 
         assert_bit_eq(test_flags[`FLAGS_ZERO], 0, "or non-zero");
 
         assign test_op = `OP_ADD;

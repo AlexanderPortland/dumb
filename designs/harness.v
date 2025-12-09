@@ -1,12 +1,12 @@
-`define MAX_ADDRESSIBLE_BYTE 255
+`define MAX_ADDRESSIBLE_BYTE 256
 
 // a little harness that emulates RAM for testing the CPU
 // (initially vibecoded w/ claude, but now I'm expanding it to actually be useful)
 module harness;
     reg clk, rst;
-    reg [7:0] mem_in;
+    reg [15:0] mem_in;
     wire R, W;
-    wire [7:0] addr, data_out;
+    wire [15:0] addr, data_out;
     wire stop;
     
     dCPU cpu(clk, rst, mem_in, R, W, addr, data_out, stop);
@@ -36,16 +36,18 @@ module harness;
     integer file, i, read, file_sz;
     reg [256*8-1:0] file_path;
     initial begin
-        memory[0] = `INSTR_LITA;
-        memory[1] = 8'd99;
-        memory[2] = `INSTR_PUSH;
-        memory[3] = `INSTR_ADD;
-        memory[4] = 8'd5;
-        memory[5] = `INSTR_STORA;
-        memory[6] = 8'd254;
-        memory[7] = `INSTR_ADD;
-        memory[8] = 8'd5;
-        memory[9] = `INSTR_POP;
+        {memory[1], memory[0]} = `INSTR_LITA;
+        {memory[3], memory[2]} = 16'd12345;
+        {memory[5], memory[4]} = `INSTR_STOP;
+        // memory[1] = 1'd99;
+        // memory[2] = `INSTR_PUSH;
+        // memory[3] = `INSTR_ADD;
+        // memory[4] = 1'd5;
+        // memory[5] = `INSTR_STORA;
+        // memory[6] = 1'd254;
+        // memory[7] = `INSTR_ADD;
+        // memory[8] = 1'd5;
+        // memory[9] = `INSTR_POP;
 
         // try to read memory from file if provided
         if ($value$plusargs("memory_from_file=%s", file_path)) begin
@@ -73,17 +75,17 @@ module harness;
     // Read from memory when CPU requests
     always @(*) begin
         if (!R) begin  // R is active low
-            mem_in = memory[addr];
+            mem_in = {memory[addr + 1], memory[addr]};
             // $display("Time=%0t setting mem_in to %h", $time, mem_in);
         end else begin
-            mem_in = 8'h00;
+            mem_in = 16'haaaa;
         end
     end
 
     // write to memory when the CPU requests
     always @(posedge clk) begin
         if (!W) begin
-            memory[addr] <= data_out;
+            {memory[addr + 1], memory[addr]} <= data_out;
             $display("Time=%0t writing %h to memory[%h]", $time, data_out, addr);
         end
         if (!W && !R) begin
@@ -103,6 +105,7 @@ module harness;
         rst = 0;
         
         #3000;  // Run for a while
+        // #30;
         
         $display("PC = %h, IR = %h, ACC = %h", cpu.pc, cpu.ir, cpu.acc);
         $finish;

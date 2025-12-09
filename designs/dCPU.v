@@ -7,7 +7,8 @@
 `define ADDR_MUX_BUS 2'd1
 `define ADDR_MUX_SP  2'd2
 
-`define SP_START_ADDR 8'd254
+`define SP_START_ADDR 16'd254
+`define INSTR_SZ_BYTES 2;
 
 `define SP_SAME 2'd0
 `define SP_INC  2'd1
@@ -18,28 +19,28 @@
 module dCPU(
     input clk,
     input rst,
-    input [7:0] mem_in,
+    input [15:0] mem_in,
     output R, W,
-    output reg [7:0] addr,
-    output [7:0] data_out,
+    output reg [15:0] addr,
+    output [15:0] data_out,
     output reg stop
 );
     wire set_stop;
 
     wire ar_load;
-    wire [7:0] data_bus;
+    wire [15:0] data_bus;
     assign data_out = data_bus;
 
     // store the current program counter and intruction register.
-    reg [7:0] pc, ir;
+    reg [15:0] pc, ir;
     wire pc_inc, pc_load, ir_load;
 
     // stack pointer (currently points 8b below the start of the stack for simplicity)
-    reg [7:0] sp;
+    reg [15:0] sp;
     wire [1:0] sp_chg;
 
     // register for operating on data
-    reg [7:0] acc;
+    reg [15:0] acc;
     wire ac_load;
 
     reg [3:0] flags;
@@ -47,7 +48,7 @@ module dCPU(
 
     // wires for interfacing w/ the ALU
     wire [3:0] alu_op;
-    wire [7:0] alu_out; wire [3:0] alu_flags;
+    wire [15:0] alu_out; wire [3:0] alu_flags;
     dALU alu(acc, data_bus, alu_op, alu_out, alu_flags);
 
     wire [1:0] bus_mux;
@@ -72,7 +73,7 @@ module dCPU(
         end else begin
             // increment the pc or load a new value from the data bus
             if (pc_inc) begin 
-                pc <= pc + 1;
+                pc <= pc + `INSTR_SZ_BYTES;
             end else if (pc_load) begin
                 pc <= data_bus;
             end
@@ -82,8 +83,8 @@ module dCPU(
                 // it takes effect before using its value to set the addr register
                 // TODO: is this hella jank? idk if this will work in real life.
                 // for now, this seems to be needed, but will fix is soon.
-                `SP_INC: sp = sp + 1;
-                `SP_DEC: sp <= sp - 1;
+                `SP_INC: sp = sp + 2;
+                `SP_DEC: sp <= sp - 2;
                 // don't do anything on SP_SAME
             endcase
 
@@ -107,27 +108,27 @@ endmodule
 
 // dCPU instruction codes
 // full list at: https://docs.google.com/spreadsheets/d/1c0boO_7xaOKxYpqUAhQFa4LIaI-Rz7ZPAWl9ut44rdk/edit?usp=sharing
-`define INSTR_LITA  8'hc0
-`define INSTR_LOADA 8'hc1
-`define INSTR_STORA 8'hc2
-`define INSTR_ADD   8'hc3
-`define INSTR_JMP   8'hc4
-`define INSTR_JMPZ  8'hc5
-`define INSTR_JMPC  8'hc6 // TODO: I think i messed up the order, so this is set if acc > M
-`define INSTR_SUB   8'hc7
-`define INSTR_CMP   8'hc8
-`define INSTR_JMPNC 8'hc9 // and this is acc <= M
-`define INSTR_PUSH  8'hca
-`define INSTR_POP   8'hcb
-`define INSTR_STOP  8'hcc
-`define INSTR_CALL  8'hcd
-`define INSTR_RET   8'hce
-`define INSTR_NOP   8'h90
+`define INSTR_LITA  16'hc0
+`define INSTR_LOADA 16'hc1
+`define INSTR_STORA 16'hc2
+`define INSTR_ADD   16'hc3
+`define INSTR_JMP   16'hc4
+`define INSTR_JMPZ  16'hc5
+`define INSTR_JMPC  16'hc6 // TODO: I think i messed up the order, so this is set if acc > M
+`define INSTR_SUB   16'hc7
+`define INSTR_CMP   16'hc8
+`define INSTR_JMPNC 16'hc9 // and this is acc <= M
+`define INSTR_PUSH  16'hca
+`define INSTR_POP   16'hcb
+`define INSTR_STOP  16'hcc
+`define INSTR_CALL  16'hcd
+`define INSTR_RET   16'hce
+`define INSTR_NOP   16'h90
 
 // TODO: i want to make a linting script to check for collisions
 
 module control(
-    input [7:0] instr,
+    input [15:0] instr,
     input [3:0] flags,
     input clk,
     input rst,
