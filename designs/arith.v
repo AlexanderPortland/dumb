@@ -32,6 +32,25 @@ module byte_ripple_add_sub(
     assign carry_out = carry[8];
 endmodule
 
+module two_byte_ripple_add_sub(
+    input [15:0] A, input [15:0] B, input sub, 
+    output carry_out, output [15:0] sum
+);
+    wire [16:0] carry;
+    wire [16:0] B_in;
+
+    assign carry[0] = sub;
+    genvar i;
+    generate
+        for (i = 0; i < 16; i = i + 1) begin
+            xor(B_in[i], B[i], sub);
+            full_adder fa1(A[i], B_in[i], carry[i], carry[i + 1], sum[i]);
+        end
+    endgenerate
+
+    assign carry_out = carry[16];
+endmodule
+
 module four_bit_ripple_adder_tb;
     reg [3:0] test_A, test_B;
     wire [3:0] test_sum;

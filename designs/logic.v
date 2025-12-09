@@ -49,6 +49,20 @@ module byte_any_bit_set(input [7:0] A, output out);
     assign out = temp[8];
 endmodule
 
+module two_byte_any_bit_set(input [15:0] A, output out);
+    wire [16:0] temp;
+
+    assign temp[0] = 0;
+    genvar i;
+    generate
+        for (i = 0; i < 16; i = i + 1) begin
+            or o(temp[i + 1], A[i], temp[i]);
+        end
+    endgenerate
+
+    assign out = temp[16];
+endmodule
+
 module byte_logical_left_shift(input [7:0] A, output carry, output [7:0] out);
     wire zero;
 
@@ -63,4 +77,20 @@ module byte_logical_left_shift(input [7:0] A, output carry, output [7:0] out);
 
     // assign the last bit to carry
     assign carry = A[7];
+endmodule
+
+module two_byte_logical_left_shift(input [15:0] A, output carry, output [15:0] out);
+    wire zero;
+
+    assign out[0] = 0;
+
+    genvar i;
+    generate
+        for (i = 1; i < 16; i = i + 1) begin
+            assign out[i] = A[i - 1];
+        end
+    endgenerate
+
+    // assign the last bit to carry
+    assign carry = A[15];
 endmodule
