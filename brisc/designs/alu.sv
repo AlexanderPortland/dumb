@@ -14,6 +14,18 @@ module ALU (
                     out = A - B;
                 end
             end
+            3'h4: begin
+                out = A ^ B;
+            end
+            3'h6: begin
+                out = A | B;
+            end
+            3'h7: begin
+                out = A & B;
+            end
+            3'h1: begin
+                out = A << B[4:0];
+            end
             default: out = 32'hcccc;
         endcase
     end

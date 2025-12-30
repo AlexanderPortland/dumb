@@ -24,17 +24,21 @@ module moduleName (
 
     wire [31:0] rs1_val; wire [31:0] rs2_val;
     wire reg_w_en;
-    reg_file regs(clk, rst, reg_w_en, ir_rd, ALUOutput, ir_rs1, rs1_val, ir_rs2, rs2_val);
+    wire [31:0] reg_data_in;
+    assign reg_data_in = (ir_op == 8'b0000011) ? LMD : ALUOutput;
+    reg_file regs(clk, rst, reg_w_en, ir_rd, reg_data_in, ir_rs1, rs1_val, ir_rs2, rs2_val);
     // only write to registers if we're R-R, R-I or load
     assign reg_w_en = ((ir_op == 8'b0110011 || ir_op == 8'b0010011 || ir_op == 8'b0000011) &&
                        (stage == `STAGE_WB));
 
-    wire [4:0] ir_rs1; wire [4:0] ir_rs2; wire [4:0] ir_rd; wire [11:0] ir_imm; wire [2:0] ir_f3;
-    wire [6:0] ir_op; wire[6:0] ir_f7;
+    wire [4:0] ir_rs1; wire [4:0] ir_rs2; wire [4:0] ir_rd; wire [11:0] ir_imm_I; wire [2:0] ir_f3;
+    wire [6:0] ir_op; wire[6:0] ir_f7; wire [11:0] ir_imm_S;
     assign ir_rs1 = ir[19:15];
     assign ir_rs2 = ir[24:20];
     assign ir_rd  = ir[11: 7];
-    assign ir_imm = ir[31:20];
+    assign ir_imm_I = ir[31:20];
+    assign ir_imm_S[11:5] = ir[31:25];
+    assign ir_imm_S[4:0] = ir_rd;
     assign ir_f3  = ir[14:12];
     assign ir_op  = ir[ 6: 0];
     assign ir_f7  = ir[31:25];
@@ -44,9 +48,13 @@ module moduleName (
     assign alu_a  = A;
     assign alu_b  = (ir_op == 8'b0010011) ? Imm : B;
     // TODO: not sure if endian-ness is supposed to flip here or not...
-    assign alu_f7 = (ir_op == 8'b0010011) ? Imm[11:5] : ir_f7;
+    assign alu_f7 = (ir_op != 8'b0010011) ? ir_f7 : 
+                    (ir_f3 == 8'h1 || ir_f3 == 8'h5) ? Imm[11:5] :
+                    // ^^ only take funct7 from imm if one of the three ops that uses it
+                    7'b0;
 
-    wire [31:0] data_mem_out; wire mem_w_en;
+    wire [31:0] data_mem_out; 
+    wire mem_w_en;
     RAM_block data_mem(clk, mem_w_en, ALUOutput, B, data_mem_out);
     // only enable write if we're in the MEMory access stage of a store op
     assign mem_w_en = (ir_op == 8'b0100011 && stage == `STAGE_MEM);
@@ -66,7 +74,11 @@ module moduleName (
             `STAGE_ID: begin
                 A <= rs1_val;
                 B <= rs2_val;
-                Imm <= {{20{ir_imm[11]}}, ir_imm[11:0]};
+                if (ir_op == 8'b0100011) begin
+                    Imm <= {{20{ir_imm_S[11]}}, ir_imm_S[11:0]};
+                end else begin
+                    Imm <= {{20{ir_imm_I[11]}}, ir_imm_I[11:0]};
+                end
             end
             `STAGE_EX: begin
                 // TODO: factor these out as macros

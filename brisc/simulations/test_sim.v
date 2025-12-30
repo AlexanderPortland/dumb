@@ -27,8 +27,8 @@ module tb_riscv_cpu;
              dut.stage == 4 ? "WB " : "???");
     $display("  PC: %h | IR: %h | next_pc: %h", dut.pc, dut.ir, dut.next_pc);
     $display("  IR Decode -> opcode: %b | funct3: %b | funct7: %b", dut.ir_op, dut.ir_f3, dut.ir_f7);
-    $display("             -> rs1: %0d | rs2: %0d | rd: %0d | imm: %h (%0d)", 
-             dut.ir_rs1, dut.ir_rs2, dut.ir_rd, dut.ir_imm, $signed(dut.ir_imm));
+    $display("             -> rs1: %0d | rs2: %0d | rd: %0d | imm(I): %h (%0d) | imm(S): %h (%0d)", 
+             dut.ir_rs1, dut.ir_rs2, dut.ir_rd, dut.ir_imm_I, $signed(dut.ir_imm_I), dut.ir_imm_S, $signed(dut.ir_imm_S));
     $display("  Pipeline -> A: %h | B: %h | Imm: %h", dut.A, dut.B, dut.Imm);
     $display("           -> ALU: %h | LMD: %h", dut.ALUOutput, dut.LMD);
     $display("  Write Enables -> reg_w_en: %b | mem_w_en: %b", dut.reg_w_en, dut.mem_w_en);
