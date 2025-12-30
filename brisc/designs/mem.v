@@ -50,7 +50,7 @@ module RAM_block #(
 
     always @(posedge clk) begin
         if (w_en) begin
-            $display("writing to addr 0x%h", addr);
+            // $display("writing to addr 0x%h", addr);
             data[addr] <= data_in[7:0];
             data[addr + 1] <= data_in[15:8];
             data[addr + 2] <= data_in[23:16];

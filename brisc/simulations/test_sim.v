@@ -5,7 +5,7 @@ module tb_riscv_cpu;
     reg rst;
 
     // Instantiate the CPU
-    moduleName dut (
+    CPU dut (
         .clk(clk),
         .rst(rst)
     );
@@ -18,24 +18,26 @@ module tb_riscv_cpu;
 
     // Monitor CPU internal registers on every clock edge
     always @(posedge clk) begin
-        $display("================================================================================================");
-    $display("Time: %0t ns | Stage: %s", $time,
-             dut.stage == 0 ? "IF " :
-             dut.stage == 1 ? "ID " :
-             dut.stage == 2 ? "EX " :
-             dut.stage == 3 ? "MEM" :
-             dut.stage == 4 ? "WB " : "???");
-    $display("  PC: %h | IR: %h | next_pc: %h", dut.pc, dut.ir, dut.next_pc);
-    $display("  IR Decode -> opcode: %b | funct3: %b | funct7: %b", dut.ir_op, dut.ir_f3, dut.ir_f7);
-    $display("             -> rs1: %0d | rs2: %0d | rd: %0d | imm(I): %h (%0d) | imm(S): %h (%0d)", 
-             dut.ir_rs1, dut.ir_rs2, dut.ir_rd, dut.ir_imm_I, $signed(dut.ir_imm_I), dut.ir_imm_S, $signed(dut.ir_imm_S));
-    $display("  Pipeline -> A: %h | B: %h | Imm: %h", dut.A, dut.B, dut.Imm);
-    $display("           -> ALU: %h | LMD: %h", dut.ALUOutput, dut.LMD);
-    $display("  Write Enables -> reg_w_en: %b | mem_w_en: %b", dut.reg_w_en, dut.mem_w_en);
-    $display("  Registers -> x1:%h x2:%h x3:%h x4:%h x5:%h",
-             dut.regs.regs[1], dut.regs.regs[2], dut.regs.regs[3], 
-             dut.regs.regs[4], dut.regs.regs[5]);
-    $display("");
+        if (dut.stage == 0) begin
+            $display("================================================================================================");
+            $display("Time: %0t ns | Stage: %s", $time,
+                    dut.stage == 0 ? "IF " :
+                    dut.stage == 1 ? "ID " :
+                    dut.stage == 2 ? "EX " :
+                    dut.stage == 3 ? "MEM" :
+                    dut.stage == 4 ? "WB " : "???");
+            $display("  PC: %h | IR: %h | next_pc: %h", dut.pc, dut.ir, dut.next_pc);
+            // $display("  IR Decode -> opcode: %b | funct3: %b | funct7: %b", dut.ir_op, dut.ir_f3, dut.ir_f7);
+            // $display("             -> rs1: %0d | rs2: %0d | rd: %0d | imm(I): %h (%0d) | imm(S): %h (%0d)", 
+            //         dut.ir_rs1, dut.ir_rs2, dut.ir_rd, dut.ir_imm_I, $signed(dut.ir_imm_I), dut.ir_imm_S, $signed(dut.ir_imm_S));
+            // $display("  Pipeline -> A: %h | B: %h | Imm: %h", dut.A, dut.B, dut.Imm);
+            // $display("           -> ALU: %h | LMD: %h", dut.ALUOutput, dut.LMD);
+            // $display("  Write Enables -> reg_w_en: %b | mem_w_en: %b", dut.reg_w_en, dut.mem_w_en);
+            $display("  Registers -> x1:%h x2:%h x3:%h x4:%h x5:%h",
+                    dut.regs.regs[1], dut.regs.regs[2], dut.regs.regs[3], 
+                    dut.regs.regs[4], dut.regs.regs[5]);
+            $display("");
+        end
     end
 
     // Test sequence
