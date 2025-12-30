@@ -3,7 +3,9 @@
 module reg_file (
     input clk,
     input rst,
+    
     // Write port
+    input w_en,
     input [4:0] write_rg,
     input [31:0] write_data,
 
@@ -30,7 +32,8 @@ module reg_file (
             end
         end else begin
             // Otherwise, write into the specified register
-            if (write_rg != 0) begin
+            $display("writing into reg %d", write_rg);
+            if (write_rg != 0 && w_en) begin
                 regs[write_rg] <= write_data;
             end
         end

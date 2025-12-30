@@ -1,0 +1,5 @@
+regfile.v
+cpu.v
+mem.v
+alu.sv
+../simulations/test_sim.v
