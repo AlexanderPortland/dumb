@@ -105,7 +105,7 @@ module CPU (
                         $finish(1);
                     end
                 end else begin
-                    $error("unknown opcode 0b%b", ir_op);
+                    $error("unknown opcode 0b%b in ir 0x%h", ir_op, ir);
                     $finish(1);
                 end
             end
