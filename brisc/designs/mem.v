@@ -10,6 +10,7 @@ module ROM_block #(
 
     assign data_out = {data[addr + 3], data[addr + 2], data[addr + 1], data[addr]};
 
+    // This is where we're writing the program.
     initial begin
         write_instr(0,  32'h01000093);   // addi x1, x0, 16
         write_instr(4,  32'h07b00113);   // addi x2, x0, 123

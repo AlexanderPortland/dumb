@@ -1,5 +1,5 @@
 regfile.v
-cpu.v
+cpu.sv
 mem.v
 alu.sv
 ../simulations/test_sim.v

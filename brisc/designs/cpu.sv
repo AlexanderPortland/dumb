@@ -28,26 +28,38 @@ module CPU (
     ROM_block #(.SZ(4096)) instr_mem(clk, pc, next_instr);
 
     wire [31:0] rs1_val; wire [31:0] rs2_val;
-    wire reg_w_en;
-    wire [31:0] reg_write_data;
-    assign reg_write_data = (ir_op == `OP_LOAD) ? LMD : ALUOutput;
+    wire [31:0] reg_write_data = (ir_op == `OP_LOAD) ? LMD : ALUOutput;
     reg_file regs(clk, rst, reg_w_en, ir_rd, reg_write_data, ir_rs1, rs1_val, ir_rs2, rs2_val);
     // only write to registers if we're an R-R, R-I or LD op
-    assign reg_w_en = ((ir_op == `OP_REGS || ir_op == `OP_REGI || ir_op == `OP_LOAD) &&
+    wire reg_w_en = ((ir_op == `OP_REGS || ir_op == `OP_REGI || ir_op == `OP_LOAD) &&
                        (stage == `STAGE_WB));
 
-    // decode the instruction into its component parts
-    wire [4:0] ir_rs1; wire [4:0] ir_rs2; wire [4:0] ir_rd; wire [11:0] ir_imm_I; wire [2:0] ir_f3;
-    wire [6:0] ir_op; wire[6:0] ir_f7; wire [11:0] ir_imm_S;
-    assign ir_rs1 = ir[19:15];
-    assign ir_rs2 = ir[24:20];
-    assign ir_rd  = ir[11: 7];
-    assign ir_imm_I = ir[31:20];
-    assign ir_imm_S[11:5] = ir[31:25];
-    assign ir_imm_S[4:0] = ir_rd;
-    assign ir_f3  = ir[14:12];
-    assign ir_op  = ir[ 6: 0];
-    assign ir_f7  = ir[31:25];
+    // Decode the instruction into its component parts
+    wire [6:0] ir_op  = ir[ 6: 0];
+    wire [4:0] ir_rs1 = ir[19:15];
+    wire [4:0] ir_rs2 = ir[24:20];
+    wire [4:0] ir_rd  = ir[11: 7];
+    wire [2:0] ir_f3  = ir[14:12];
+    wire [6:0] ir_f7  = ir[31:25];
+
+    // Decode the immediate portion which is often scattered across the instruction.
+    logic [11:0] ir_imm;
+    always_comb begin
+        case (ir_op)
+            `OP_REGI,
+            `OP_LOAD: begin // Type I Instruction
+                ir_imm = ir[31:20];
+            end
+            `OP_STR: begin // Type S Instruction
+                ir_imm[11:5] = ir[31:25];
+                ir_imm[4 :0] = ir[11: 7];
+            end
+            `OP_BRCH: begin // Type B Instruction
+                // TODO:
+            end
+            default: ir_imm = 12'dX;
+        endcase
+    end
 
     wire [31:0] alu_a; wire [31:0] alu_b; wire [31:0] alu_out; wire [6:0] alu_f7;
     ALU alu(alu_a, alu_b, ir_f3, alu_f7, alu_out);
@@ -59,16 +71,14 @@ module CPU (
                     // ^^ only take funct7 from imm if one of the three ops that uses it
                     7'b0;
 
-    wire [31:0] data_mem_out; 
-    wire mem_w_en;
+    wire [31:0] data_mem_out;
     RAM_block data_mem(clk, mem_w_en, ALUOutput, B, data_mem_out);
     // only enable write if we're in the MEMory access stage of a store op
-    assign mem_w_en = (ir_op == `OP_STR && stage == `STAGE_MEM);
+    wire mem_w_en = (ir_op == `OP_STR && stage == `STAGE_MEM);
 
     initial begin
         pc <= 0;
         stage <= `STAGE_IF;
-        write_data <= 0;
     end
 
     always @(posedge clk) begin
@@ -80,11 +90,7 @@ module CPU (
             `STAGE_ID: begin
                 A <= rs1_val;
                 B <= rs2_val;
-                if (ir_op == `OP_STR) begin
-                    Imm <= {{20{ir_imm_S[11]}}, ir_imm_S[11:0]};
-                end else begin
-                    Imm <= {{20{ir_imm_I[11]}}, ir_imm_I[11:0]};
-                end
+                Imm <= ir_imm;
             end
             `STAGE_EX: begin
                 // TODO: factor these out as macros
