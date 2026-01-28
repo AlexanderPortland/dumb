@@ -11,6 +11,7 @@
 `define OP_BRCH 8'b1100011
 `define OP_LUI  8'b0110111
 `define OP_JAL  8'b1101111
+`define OP_JALR 8'b1100111
 
 module CPU (
     input clk,
@@ -33,7 +34,7 @@ module CPU (
     wire [31:0] reg_write_data = (ir_op == `OP_LOAD) ? LMD : ALUOutput;
     reg_file regs(clk, rst, reg_w_en, ir_rd, reg_write_data, ir_rs1, rs1_val, ir_rs2, rs2_val);
     // only write to registers if we're an R-R, R-I or LD op
-    wire reg_w_en = ((ir_op == `OP_REGS || ir_op == `OP_REGI || ir_op == `OP_LOAD || ir_op == `OP_LUI || ir_op == `OP_JAL) &&
+    wire reg_w_en = ((ir_op == `OP_REGS || ir_op == `OP_REGI || ir_op == `OP_LOAD || ir_op == `OP_LUI || ir_op == `OP_JAL || ir_op == `OP_JALR) &&
                        (stage == `STAGE_WB));
 
     // Decode the instruction into its component parts
@@ -55,6 +56,7 @@ module CPU (
     logic [11:0] ir_imm;
     always_comb begin
         case (ir_op)
+            `OP_JALR,
             `OP_REGI,
             `OP_LOAD: begin // Type I Instruction
                 ir_imm = ir[31:20];
@@ -102,6 +104,10 @@ module CPU (
                 B <= rs2_val;
                 // TODO: sign extend immediate for add;
                 Imm <= {{20{ir_imm[11]}}, ir_imm[11:0]};
+                if (ir == 32'h00100073) begin
+                    $error("main successfully returned 0x%h", regs.regs[10]);
+                    $finish(1);
+                end
             end
             `STAGE_EX: begin
                 // TODO: factor these out as macros
@@ -117,10 +123,14 @@ module CPU (
                     end
                 end else if (ir_op == `OP_LUI) begin
                     ALUOutput <= ir[31:12] << 12;
-                end else if (ir_op == `OP_JAL) begin
+                end else if (ir_op == `OP_JAL || ir_op == `OP_JALR) begin
                     // here, prep to store previous return addr
                     ALUOutput <= pc + 4;
-                    next_pc <= pc + ir_imm_j;
+                    if (ir_op == `OP_JAL) begin
+                        next_pc <= pc + ir_imm_j;
+                    end else begin
+                        next_pc <= Imm + rs1_val;
+                    end
                 end else begin
                     $error("unknown opcode 0b%b in ir 0x%h", ir_op, ir);
                     $finish(1);

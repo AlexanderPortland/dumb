@@ -14,8 +14,10 @@ module ROM_block #(
 
     assign data_out = data[addr >> 2];
 
+    string file_path;
     initial begin
-        $readmemh("../programs/test.hex", data);
+        if ($value$plusargs ("prog_file=%s", file_path))
+        $readmemh(file_path, data);
     end
 endmodule
 

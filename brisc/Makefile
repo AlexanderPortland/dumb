@@ -6,10 +6,10 @@ BIN_NAME=cpu-test
 cpu:
 	cd $(DESIGN_DIR) && iverilog -g2012 -o $(BIN_NAME) -c cmdfile.txt
 
-MEM ?=
+PROG ?= test
 
-run-sim: cpu programs/test.hex
-	cd $(DESIGN_DIR) && vvp $(BIN_NAME) $(if $(MEM),+memory_from_file=$(PWD)/$(MEM))
+run-sim: cpu programs/$(PROG).hex
+	cd $(DESIGN_DIR) && vvp $(BIN_NAME) +prog_file=../programs/$(PROG).hex
 
 clean:
 	rm -f $(DESIGN_DIR)/$(BIN_NAME)
