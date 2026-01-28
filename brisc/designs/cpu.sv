@@ -45,15 +45,15 @@ module CPU (
     wire [2:0] ir_f3  = ir[14:12];
     wire [6:0] ir_f7  = ir[31:25];
 
-    wire [20:0] ir_imm_j;
-    assign ir_imm_j[20] = ir[31];
+    wire [32:0] ir_imm_j;
+    assign ir_imm_j[32:20] = {13{ir[31]}}; // Sign extend the last upper bits
     assign ir_imm_j[10:1] = ir[30:21];
     assign ir_imm_j[11] = ir[20];
     assign ir_imm_j[19:12] = ir[19:12];
     assign ir_imm_j[0] = 0;
 
-    wire [12:0] ir_imm_b;
-    assign ir_imm_b[12] = ir[31];
+    wire [32:0] ir_imm_b;
+    assign ir_imm_b[32:12] = {21{ir[31]}}; // Sign extend the last upper bits
     assign ir_imm_b[10:5] = ir[30:25];
     assign ir_imm_b[4:1] = ir[11:8];
     assign ir_imm_b[11] = ir[7];

@@ -70,7 +70,7 @@ module tb_riscv_cpu;
         rst = 1;
 
         // Run for a bit
-        #3000;
+        #30000;
 
         $display("\n=== Test Complete ===");
         $finish;
