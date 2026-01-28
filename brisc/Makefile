@@ -14,10 +14,7 @@ run-sim: $(DESIGN_DIR)/cpu-test programs/$(PROG).hex
 
 clean:
 	rm -f $(DESIGN_DIR)/cpu-test
-	rm -f programs/*.elf programs/*.o programs/*.hex
-
-# Convert elf to binary file for reading
-# programs/%.bin: programs/%.elf
+	rm -f programs/*.elf programs/*.o programs/*.hex programs/*.expected.new
 
 # COMPILATION
 PROGRAM_SOURCES := $(wildcard programs/*.c)
@@ -52,7 +49,7 @@ programs/%.expected.new: programs/%.hex $(DESIGN_DIR)/cpu-test
 	cd $(DESIGN_DIR) && vvp cpu-test +prog_file=../$< > ../$@
 	@if [ -f programs/$*.expected ]; then \
 		echo "Comparing with expected output..."; \
-		diff programs/$*.expected programs/$*.expected.new && echo "MATCH: $*" && rm programs/$*.expected.new || (echo "DIFF: $*" && exit 1); \
+		diff programs/$*.expected programs/$*.expected.new && echo "[*] PASSED: $*" && rm programs/$*.expected.new || (echo "[!] DIFF: $*" && exit 1); \
 	else \
 		echo "No expected output file found" && exit 1; \
 	fi

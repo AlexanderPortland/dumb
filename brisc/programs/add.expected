@@ -223,5 +223,5 @@ Time: 955000 ns | Stage: IF
    x24( s8 ):00000000 x25(s9):00000000 x26(s10):00000000 x27(s11):00000000 x28(t3):00000000 x29(t4):00000000
    x30( t5 ):00000000 x31(t6):00000000
 
-ERROR: cpu.sv:108: main successfully returned 0x0000001e
+ERROR: cpu.sv:128: main successfully returned 0x0000001e
        Time: 965000  Scope: tb_riscv_cpu.dut

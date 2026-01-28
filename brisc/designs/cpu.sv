@@ -52,6 +52,13 @@ module CPU (
     assign ir_imm_j[19:12] = ir[19:12];
     assign ir_imm_j[0] = 0;
 
+    wire [12:0] ir_imm_b;
+    assign ir_imm_b[12] = ir[31];
+    assign ir_imm_b[10:5] = ir[30:25];
+    assign ir_imm_b[4:1] = ir[11:8];
+    assign ir_imm_b[11] = ir[7];
+    assign ir_imm_b[0] = 0;
+
     // Decode the immediate portion which is often scattered across the instruction.
     logic [11:0] ir_imm;
     always_comb begin
@@ -65,12 +72,10 @@ module CPU (
                 ir_imm[11:5] = ir[31:25];
                 ir_imm[4 :0] = ir[11: 7];
             end
-            `OP_BRCH: begin // Type B Instruction
-                // TODO:
-            end
             default: ir_imm = 12'dX;
         endcase
     end
+
 
     wire [31:0] alu_a; wire [31:0] alu_b; wire [31:0] alu_out; wire [6:0] alu_f7;
     ALU alu(alu_a, alu_b, ir_f3, alu_f7, alu_out);
@@ -86,6 +91,21 @@ module CPU (
     RAM_block data_mem(clk, mem_w_en, ALUOutput, B, data_mem_out);
     // only enable write if we're in the MEMory access stage of a store op
     wire mem_w_en = (ir_op == `OP_STR && stage == `STAGE_MEM);
+
+    logic brch_taken;
+    always_comb begin
+        if (ir_op == `OP_BRCH) begin
+            case (ir_f3)
+                3'h0: brch_taken = (rs1_val == rs2_val);
+                3'h1: brch_taken = (rs1_val != rs2_val);
+                3'h4: brch_taken = (rs1_val < rs2_val);
+                3'h5: brch_taken = (rs1_val >= rs2_val);
+                default: brch_taken = 1'hx;
+            endcase
+        end else begin
+            brch_taken = 3'h0;
+        end
+    end
 
     initial begin
         pc <= 0;
@@ -131,6 +151,10 @@ module CPU (
                     end else begin
                         next_pc <= Imm + rs1_val;
                     end
+                end else if (ir_op == `OP_BRCH) begin
+                    if (brch_taken) begin
+                        next_pc <= pc + ir_imm_b;
+                    end
                 end else begin
                     $error("unknown opcode 0b%b in ir 0x%h", ir_op, ir);
                     $finish(1);
@@ -147,8 +171,8 @@ module CPU (
                 end else if (ir_op == `OP_LUI) begin
                     // don't do anything here (we're waiting until WB)
                 end else if (ir_op == `OP_BRCH) begin
-                    $error("have to handle MEM stage for branches");
-                    $finish(1);
+                    // $error("have to handle MEM stage for branches");
+                    // $finish(1);
                 end
             end
             `STAGE_WB: begin
