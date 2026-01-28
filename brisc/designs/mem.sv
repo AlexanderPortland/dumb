@@ -16,8 +16,11 @@ module ROM_block #(
 
     string file_path;
     initial begin
-        if ($value$plusargs ("prog_file=%s", file_path))
-        $readmemh(file_path, data);
+        if ($value$plusargs ("prog_file=%s", file_path)) begin
+            $readmemh(file_path, data);
+        end else begin
+            $finish(2);
+        end
     end
 endmodule
 

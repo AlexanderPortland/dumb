@@ -106,7 +106,7 @@ module CPU (
                 Imm <= {{20{ir_imm[11]}}, ir_imm[11:0]};
                 if (ir == 32'h00100073) begin
                     $error("main successfully returned 0x%h", regs.regs[10]);
-                    $finish(1);
+                    $finish(0);
                 end
             end
             `STAGE_EX: begin

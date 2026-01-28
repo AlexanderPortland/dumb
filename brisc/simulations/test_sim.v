@@ -18,7 +18,7 @@ module tb_riscv_cpu;
 
     // Monitor CPU internal registers on every clock edge
     always @(posedge clk) begin
-        // if (dut.stage == 0) begin
+        if (dut.stage == 0 || $test$plusargs("v")) begin
             $display("================================================================================================");
             $display("Time: %0t ns | Stage: %s", $time,
                     dut.stage == 0 ? "IF " :
@@ -27,12 +27,14 @@ module tb_riscv_cpu;
                     dut.stage == 3 ? "MEM" :
                     dut.stage == 4 ? "WB " : "???");
             $display("  PC: %h | IR: %h | next_pc: %h", dut.pc, dut.ir, dut.next_pc);
-            $display("  IR Decode -> opcode: %b | funct3: %b | funct7: %b", dut.ir_op, dut.ir_f3, dut.ir_f7);
-            $display("             -> rs1: %0d | rs2: %0d | rd: %0d | imm: %h (%0d) | irj: %b", 
-                    dut.ir_rs1, dut.ir_rs2, dut.ir_rd, dut.ir_imm, $signed(dut.ir_imm), dut.ir_imm_j);
-            $display("  Pipeline -> A: %h | B: %h | Imm: %h", dut.A, dut.B, dut.Imm);
-            $display("           -> ALU: %h | LMD: %h | mem_out: %h", dut.ALUOutput, dut.LMD, dut.data_mem_out);
-            $display("  Write Enables -> reg_w_en: %b | mem_w_en: %b", dut.reg_w_en, dut.mem_w_en);
+            if ($test$plusargs("v")) begin
+                $display("  IR Decode -> opcode: %b | funct3: %b | funct7: %b", dut.ir_op, dut.ir_f3, dut.ir_f7);
+                $display("             -> rs1: %0d | rs2: %0d | rd: %0d | imm: %h (%0d) | irj: %b", 
+                        dut.ir_rs1, dut.ir_rs2, dut.ir_rd, dut.ir_imm, $signed(dut.ir_imm), dut.ir_imm_j);
+                $display("  Pipeline -> A: %h | B: %h | Imm: %h", dut.A, dut.B, dut.Imm);
+                $display("           -> ALU: %h | LMD: %h | mem_out: %h", dut.ALUOutput, dut.LMD, dut.data_mem_out);
+                $display("  Write Enables -> reg_w_en: %b | mem_w_en: %b", dut.reg_w_en, dut.mem_w_en);
+            end
             $display("  Registers:");
             $display("    x0(zero):%h  x1(ra):%h  x2(sp ):%h  x3(gp ):%h  x4(tp):%h  x5(t0):%h",
                     dut.regs.regs[0],  dut.regs.regs[1],  dut.regs.regs[2],  
@@ -52,7 +54,7 @@ module tb_riscv_cpu;
             $display("   x30( t5 ):%h x31(t6):%h",
                     dut.regs.regs[30], dut.regs.regs[31]);
             $display("");
-        // end
+        end
     end
 
     // Test sequence
