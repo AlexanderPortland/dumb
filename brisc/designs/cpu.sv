@@ -101,7 +101,7 @@ module CPU (
                 A <= rs1_val;
                 B <= rs2_val;
                 // TODO: sign extend immediate for add;
-                Imm <= ir_imm;
+                Imm <= {{20{ir_imm[11]}}, ir_imm[11:0]};
             end
             `STAGE_EX: begin
                 // TODO: factor these out as macros
