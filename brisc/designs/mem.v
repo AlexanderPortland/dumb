@@ -21,7 +21,7 @@ endmodule
 
 /// Reads and writes in blocks of 4B
 module RAM_block #(
-    parameter SZ = 4096
+    parameter SZ = 8192
 ) (
     input clk,
     input w_en,
@@ -36,9 +36,20 @@ module RAM_block #(
     assign data_out[23:16] = data[addr + 2];
     assign data_out[31:24] = data[addr + 3];
 
+    integer i;
+    initial begin
+        for (i = 0; i < SZ; i = i + 1) begin
+            data[i] = 8'hac;
+        end
+    end
+
     always @(posedge clk) begin
         if (w_en) begin
-            // $display("writing to addr 0x%h", addr);
+            $display("writing 0x%h to addr 0x%h", data_in, addr);
+            if (addr > SZ) begin
+                    $error("write OOB at addr 0x%h", addr);
+                    $finish(1);
+                end
             data[addr] <= data_in[7:0];
             data[addr + 1] <= data_in[15:8];
             data[addr + 2] <= data_in[23:16];

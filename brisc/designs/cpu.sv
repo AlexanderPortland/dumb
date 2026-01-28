@@ -9,6 +9,8 @@
 `define OP_LOAD 8'b0000011
 `define OP_STR  8'b0100011
 `define OP_BRCH 8'b1100011
+`define OP_LUI  8'b0110111
+`define OP_JAL  8'b1101111
 
 module CPU (
     input clk,
@@ -31,7 +33,7 @@ module CPU (
     wire [31:0] reg_write_data = (ir_op == `OP_LOAD) ? LMD : ALUOutput;
     reg_file regs(clk, rst, reg_w_en, ir_rd, reg_write_data, ir_rs1, rs1_val, ir_rs2, rs2_val);
     // only write to registers if we're an R-R, R-I or LD op
-    wire reg_w_en = ((ir_op == `OP_REGS || ir_op == `OP_REGI || ir_op == `OP_LOAD) &&
+    wire reg_w_en = ((ir_op == `OP_REGS || ir_op == `OP_REGI || ir_op == `OP_LOAD || ir_op == `OP_LUI || ir_op == `OP_JAL) &&
                        (stage == `STAGE_WB));
 
     // Decode the instruction into its component parts
@@ -41,6 +43,13 @@ module CPU (
     wire [4:0] ir_rd  = ir[11: 7];
     wire [2:0] ir_f3  = ir[14:12];
     wire [6:0] ir_f7  = ir[31:25];
+
+    wire [20:0] ir_imm_j;
+    assign ir_imm_j[20] = ir[31];
+    assign ir_imm_j[10:1] = ir[30:21];
+    assign ir_imm_j[11] = ir[20];
+    assign ir_imm_j[19:12] = ir[19:12];
+    assign ir_imm_j[0] = 0;
 
     // Decode the immediate portion which is often scattered across the instruction.
     logic [11:0] ir_imm;
@@ -87,9 +96,11 @@ module CPU (
                 next_pc <= pc + 4; // inc pc
                 ir <= next_instr;  // fetch IR
             end
+            // FIXME: WHY TF DO WE NEED A DECODE PHASE? cant this all be done synchronously?
             `STAGE_ID: begin
                 A <= rs1_val;
                 B <= rs2_val;
+                // TODO: sign extend immediate for add;
                 Imm <= ir_imm;
             end
             `STAGE_EX: begin
@@ -104,6 +115,12 @@ module CPU (
                         $error("unknown alu op 0x%h", ir_f3);
                         $finish(1);
                     end
+                end else if (ir_op == `OP_LUI) begin
+                    ALUOutput <= ir[31:12] << 12;
+                end else if (ir_op == `OP_JAL) begin
+                    // here, prep to store previous return addr
+                    ALUOutput <= pc + 4;
+                    next_pc <= pc + ir_imm_j;
                 end else begin
                     $error("unknown opcode 0b%b in ir 0x%h", ir_op, ir);
                     $finish(1);
@@ -117,13 +134,15 @@ module CPU (
                 end else if (ir_op == `OP_STR) begin
                     // store
                     // [don't do anything we already wrote by synchronously enabling w_en]
+                end else if (ir_op == `OP_LUI) begin
+                    // don't do anything here (we're waiting until WB)
                 end else if (ir_op == `OP_BRCH) begin
                     $error("have to handle MEM stage for branches");
                     $finish(1);
                 end
             end
             `STAGE_WB: begin
-
+                
             end
             default: begin
                 $error("unknown stage");

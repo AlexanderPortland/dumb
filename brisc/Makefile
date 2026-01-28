@@ -41,4 +41,6 @@ programs/%.elf:	programs/%.o programs/start.S
 	riscv64-unknown-elf-gcc $(CFLAGS) $(LDFLAGS) $^ -o $@
 
 programs/%.hex: programs/%.elf
-	riscv64-unknown-elf-objcopy -O verilog $^ $@
+	riscv64-unknown-elf-objcopy -O verilog --verilog-data-width 4 $^ $@
+# we need data-width 4 to ensure that this can be loaded by the current ROM design
+# (which uses a 4-byte wide array)
